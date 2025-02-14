@@ -5,6 +5,10 @@ public class RegularRoom : MonoBehaviour //Defines the class
     // Variables accessible anywhere inside this RegularRoom instance.
     public string room_coordinate;
     public string room_event_type;
+    public GameObject Wall_1 // = insert here the statement that references the first wall
+    public GameObject Wall_2 // = insert here the statement that references the second wall
+    public GameObject Wall_3 // = insert here the statement that references the third wall
+    public GameObject Wall_4 // = insert here the statement that references the fourth wall
 
     // Called once when the script is loaded. Akin to ready()
     void Start()
