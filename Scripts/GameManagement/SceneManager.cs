@@ -37,40 +37,27 @@ public class SceneManager : MonoBehaviour
 		Debug.Log("Memoria required: " + floorScript.GetRequiredMemoria());
 
         
-        //Here it would instantiate the given floor map.
-        //It should call the map "get_tilemap" method.
-        //And we then should create a variable to hold the used tiles using the "get_used_cells" method
-        // Here we get rid of the map, as we don't need it anymore.
+		// Instantiate the given floor map and set it as a child of the new Scene Manager
+		GameObject mapInstance = Instantiate(map);
+		mapInstance.transform.SetParent(this.transform);
+		
+		var used_cells = mapInstance.GetComponent<FloorMap>().used_cells;
 
-        /* We make some variables min_x,max_x,min_y,max_y. 
-        We then make something similar to this BUT I'm probably goint to use anothe method to determine WHERE
-        in the floor each room is after being placed.
-        for tile in used_tiles:
-		var room:RegularRoom = Room.instantiate()
-		regular_floor.add_child(room)
-		room.transform.origin = Vector3(tile.x * Globals.GRID_SIZE, 0, tile.y * Globals.GRID_SIZE)
+		// Here we get rid of the map, as we don't need it anymore.
+		Destroy(mapInstance);
+		/*
+			// Iterate through each cell in used_cells to generate the rooms.
+			// For each cell:
+			// 1. Instantiate the Regular_Room prefab as a child of the new floor.
+			// 2. Define the grid cell size (e.g., 1.0f) to calculate the room’s position.
+			// 3. Calculate the room's local position based on the cell's x and y coordinates.
+			// 4. Place the room at the calculated position within the floor.
+		*/
+        /*
 		var row_label = String.chr(65 + tile.x)
 		room.coordinate = row_label + str(tile.y + 1)
 		room.name = room.coordinate
 		rooms[regular_floor.name].append(room)
-
-		# Update bounds for x and y
-		if tile.x < min_x:
-			min_x = tile.x
-		if tile.x > max_x:
-			max_x = tile.x
-		if tile.y < min_y:
-			min_y = tile.y
-		if tile.y > max_y:
-			max_y = tile.y
-
-		# Store tile coordinates and parent floor in room userdata
-		room.userdata = {"x": tile.x, "y": tile.y}
-
-
-	for room in rooms[regular_floor.name]:
-		var x = room.userdata["x"]
-		var y = room.userdata["y"]
 
 		# Determine room position
 		room.top_row = (y == min_y)
