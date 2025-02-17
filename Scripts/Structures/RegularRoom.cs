@@ -21,8 +21,6 @@ public class RegularRoom : MonoBehaviour //Defines the class
     // Called once when the script is loaded. Akin to ready()
     void Start()
     {
-     room_coordinate = "A1";
-     room_event_type = "Quartz";
     }
 
     // Update is called once per frame. Akin to Update(delta)

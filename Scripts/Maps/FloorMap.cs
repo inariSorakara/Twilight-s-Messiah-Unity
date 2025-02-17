@@ -9,9 +9,12 @@ public class FloorMap : MonoBehaviour
     public Vector3Int[] used_cells; // Array holding positions of used cells.
     #endregion
 
-    void Start()
+    // Awake is called immediately when the script instance is loaded
+    void Awake()
     { 
+        Debug.Log("FloorMap awake.");
         used_cells = GetUsedCellsFromTilemap();
+        Debug.Log("used_cells updated in Awake.");
     }
 
     void Update()
@@ -51,4 +54,4 @@ public class FloorMap : MonoBehaviour
         // Convert the list of positions to an array and return it.
         return cellPositions.ToArray();
     }
-    }
+}
