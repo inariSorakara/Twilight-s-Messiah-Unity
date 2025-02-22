@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using TMPro;
 
 public class SceneManager : MonoBehaviour
 {   
@@ -27,14 +28,19 @@ public class SceneManager : MonoBehaviour
     public void Generate_Floor(GameObject map)
     {
 		int floorNumber = Fortress.transform.childCount + 1;
+
 		GameObject newFloor = Instantiate(Floor, Fortress.transform);
+
 		newFloor.name = "Floor" + floorNumber;
+
 		Floor floorScript = newFloor.GetComponent<Floor>();
+
 		if (floorScript != null)
 		{
 			floorScript.memoriaRequired = 100 * floorNumber;
 		}
 		Debug.Log("Floor " + newFloor.name+ " generated.");
+
 		Debug.Log("Memoria required: " + floorScript.GetRequiredMemoria());
 
         
@@ -88,40 +94,41 @@ public class SceneManager : MonoBehaviour
 
 			// Append the room to the rooms dictionary inside the floor script.
 			// Here, the cell coordinate is used as the key.
-			floorScript.rooms.Add(cell.ToString(), room);
+			string cellString = cell.ToString();
+			floorScript.rooms.Add(cellString, room);
 
-			Debug.Log("Generated room at grid position: " + cell);
-		}
-	
-	/* Step-by-step process for setting up the room:
+			// Determine the room's name based on its coordinates, accounting for the offset
+			char columnLetter = (char)('A' + (cell.x + 5)); // 'A' + (cell.x + offset_x)
+			int rowNumber = (cell.y + 3) + 1; // cell.y + offset_y + 1
+			string roomName = columnLetter.ToString() + rowNumber.ToString(); // Column + Row
 
-	   1. Determine the room's coordinate:
-		  - Since the cells in the tilemap are not placed starting from the origin (0, 0),
-			we cannot use the cell coordinates directly as the room's coordinate.
-	   
-	   2. Name the room based on its spawn order:
-		  - The first room should be named "A1".
-		  - If rooms are spawned in rows:
-				* The next room in the same row is named "B1", "C1", etc.
-				* When the row ends, start with a new row using "A2", "B2", etc.
-		  - If rooms are spawned in columns:
-				* The next room in the same column is named "A2", "A3", etc.
-				* When the column ends, start with a new column using "B1", "B2", etc.
-	   
-	   3. Assign the room's coordinate:
-		  - Use your determined naming logic to compute the room coordinate.
-		  - Store this value in a variable representing the room's coordinate.
-	   
-	   4. Update the room's properties:
-		  - Set the room's name to the computed room coordinate.
-		  - Set the room's event type property to "???" as a placeholder.
-	   
-	   5. Determine the neighbours for each room:
-		  - Develop a method to identify neighbouring rooms based on their coordinates.
-		  - Use this information to link the rooms accordingly.
-	   
-	   6. Update the room faces:
-		  - After determining the neighbours, refresh or update the room faces to reflect these connections.
-	*/
-    }
-}
+			// Set the room's name in the hierarchy
+			room.name = roomName;
+			room.GetComponent<RegularRoom>().room_coordinate = roomName;
+			Debug.Log("Room " + roomName + " generated at " + cell);
+
+
+			 // Update the IDLabel text
+            if (room.GetComponent<RegularRoom>().IDLabel != null)
+            {
+                TMP_Text tmp = room.GetComponent<RegularRoom>().IDLabel.GetComponent<TMP_Text>();
+                if (tmp != null)
+                {
+                    tmp.text = roomName;
+                }
+                else
+                {
+                    Debug.LogError("TMP_Text component not found on IDLabel in room " + roomName);
+                }
+            }
+            else
+            {
+                Debug.LogError("IDLabel is not assigned in RegularRoom script for room " + roomName);
+            }
+
+			// Call the room's UpdateWall method
+			room.GetComponent<RegularRoom>().UpdateWalls(cellString, rooms_to_generate);
+
+			}  // end foreach loop
+		} // end Generate_Floor method
+	} // end SceneManager class
