@@ -1,36 +1,26 @@
 using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
+using UnityEngine.Rendering;
 
 public class SceneManager : MonoBehaviour
-{   
+{
     #region Global Variables
-    public GameObject Fortress; // Reference to the Fortress prefab.
-   
-   public GameObject Floor; // Reference to the Floor prefab.
-
-    public GameObject Regular_Room; //Reference the room prefab.
-
+    public GameObject Fortress;
+    public GameObject Floor;
+    public GameObject Regular_Room;
+    public Dictionary<string, GameObject> rooms; // Store the rooms generated
     #endregion
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
     }
 
     public void Generate_Floor(GameObject map)
-    {
+	{
 		int floorNumber = Fortress.transform.childCount + 1;
 
 		GameObject newFloor = Instantiate(Floor, Fortress.transform);
-
 		newFloor.name = "Floor" + floorNumber;
 
 		Floor floorScript = newFloor.GetComponent<Floor>();
@@ -39,18 +29,13 @@ public class SceneManager : MonoBehaviour
 		{
 			floorScript.memoriaRequired = 100 * floorNumber;
 		}
-		Debug.Log("Floor " + newFloor.name+ " generated.");
 
-		Debug.Log("Memoria required: " + floorScript.GetRequiredMemoria());
-
-        
 		// Instantiate the given floor map and set it as a child of the new Scene Manager
 		GameObject mapInstance = Instantiate(map, newFloor.transform);
-		
 		var floorMap = mapInstance.GetComponent<FloorMap>();
 
 		List<Vector3Int> rooms_to_generate = new List<Vector3Int>();
-		
+
 		if (floorMap == null)
 		{
 			Debug.LogError("FloorMap script not found on the map instance.");
@@ -61,74 +46,128 @@ public class SceneManager : MonoBehaviour
 			{
 				rooms_to_generate.Add(cell);
 			}
-			Debug.Log("Rooms to generate: " + string.Join(", ", rooms_to_generate));
 		}
 		else
 		{
 			Debug.Log("used_cells is empty.");
-		}
+    }
 
-		// Here we get rid of the map, as we don't need it anymore. 
-		Destroy(mapInstance);
+    // Here we get rid of the map, as we don't need it anymore. 
+    Destroy(mapInstance);
 
+    // Grid spacing for room placement; adjust this value based on your room prefab dimensions.
+    float gridSpacing = 5f;
 
-		// Grid spacing for room placement; adjust this value based on your room prefab dimensions.
-		float gridSpacing = 5f;
+    // Ensure the rooms dictionary is initialized.
+    if (floorScript.rooms == null)
+    {
+        floorScript.rooms = new Dictionary<string, GameObject>();
+    }
 
-		// Ensure the rooms dictionary is initialized.
-		if (floorScript.rooms == null)
-		{
-    		floorScript.rooms = new Dictionary<string, GameObject>();
-		}
+    // Iterate through each cell coordinate in rooms_to_generate to generate the rooms.
+    foreach (Vector3Int cell in rooms_to_generate)
+    {
+        GameObject room = Instantiate(Regular_Room, newFloor.transform);
 
-		// Iterate through each cell coordinate in rooms_to_generate to generate the rooms.
-		foreach (Vector3Int cell in rooms_to_generate)
-		{
-			// Instantiate the Regular_Room prefab as a child of the new floor.
-			GameObject room = Instantiate(Regular_Room, newFloor.transform);
+        // Position the room
+        room.transform.localPosition = new Vector3(cell.x * gridSpacing, 0, cell.y * gridSpacing);
 
-			// Position the room in a grid-like fashion.
-			// The x and y components determine the grid position (using cell.x and cell.y).
-			// Adjust the y component (vertical axis) to 0 for flat placement, or change accordingly if needed.
-			room.transform.localPosition = new Vector3(cell.x * gridSpacing, 0, cell.y * gridSpacing);
+        // Convert the cell coordinate to a string
+        string cellString = cell.ToString();
+        floorScript.rooms.Add(cellString, room);
 
-			// Append the room to the rooms dictionary inside the floor script.
-			// Here, the cell coordinate is used as the key.
-			string cellString = cell.ToString();
-			floorScript.rooms.Add(cellString, room);
+        // Adjust column and row so that top row is A1
+        char columnLetter = (char)('A' + (cell.x + 5));
+        int rowNumber = (2 - cell.y) + 1; // <-- Invert y to make top row #1
+        string roomName = columnLetter + rowNumber.ToString();
 
-			// Determine the room's name based on its coordinates, accounting for the offset
-			char columnLetter = (char)('A' + (cell.x + 5)); // 'A' + (cell.x + offset_x)
-			int rowNumber = (cell.y + 3) + 1; // cell.y + offset_y + 1
-			string roomName = columnLetter.ToString() + rowNumber.ToString(); // Column + Row
+        // Assign room name and debug
+        room.name = roomName;
+        room.GetComponent<RegularRoom>().RoomCoordinate = roomName;
 
-			// Set the room's name in the hierarchy
-			room.name = roomName;
-			room.GetComponent<RegularRoom>().room_coordinate = roomName;
-			Debug.Log("Room " + roomName + " generated at " + cell);
-
-
-			 // Update the IDLabel text
-            if (room.GetComponent<RegularRoom>().IDLabel != null)
+        // Update the IdLabel text
+        if (room.GetComponent<RegularRoom>().IdLabel != null)
+        {
+            TMP_Text tmp = room.GetComponent<RegularRoom>().IdLabel.GetComponent<TMP_Text>();
+            if (tmp != null)
             {
-                TMP_Text tmp = room.GetComponent<RegularRoom>().IDLabel.GetComponent<TMP_Text>();
-                if (tmp != null)
-                {
-                    tmp.text = roomName;
-                }
-                else
-                {
-                    Debug.LogError("TMP_Text component not found on IDLabel in room " + roomName);
-                }
+                tmp.text = roomName;
             }
             else
             {
-                Debug.LogError("IDLabel is not assigned in RegularRoom script for room " + roomName);
+                Debug.LogError("TMP_Text component not found on IdLabel in room " + roomName);
             }
+        }
+        else
+        {
+            Debug.LogError("IdLabel is not assigned in RegularRoom script for room " + roomName);
+        }
 
-			// Call the room's UpdateWall method
-			room.GetComponent<RegularRoom>().UpdateWalls(cellString, rooms_to_generate);
+        // Convert List<Vector3Int> to HashSet<Vector3Int>
+        HashSet<Vector3Int> roomsToGenerateSet = new HashSet<Vector3Int>(rooms_to_generate);
 
-			}  // end foreach loop
-		} // end Generate_Floor method
-	} // end SceneManager class
+        // Convert HashSet to List
+        List<Vector3Int> roomsToGenerateList = new List<Vector3Int>(roomsToGenerateSet);
+
+        // Call the room's UpdateWall method
+        room.GetComponent<RegularRoom>().UpdateWalls(cellString, roomsToGenerateList);
+    }
+
+    // Store the generated rooms in the SceneManager's rooms dictionary
+    rooms = floorScript.rooms;
+	Debug.Log("SceneManager rooms dictionary contents:");
+	foreach (var kvp in rooms)
+	{
+		Debug.Log($"Key: {kvp.Key}, Value name: {kvp.Value.name}");
+	}
+}
+
+    public void Generate_Ambient()
+    {
+    // 1) Make the camera’s background color black
+    Camera.main.backgroundColor = Color.black;
+
+    // 2) Ambient light: full black
+    RenderSettings.ambientMode = AmbientMode.Flat;
+    RenderSettings.ambientLight = Color.black;
+
+    // 3) (Optional) disable skybox
+    RenderSettings.skybox = null;
+
+    // 4) Fog settings if desired (dark & linear)
+    RenderSettings.fog = true;
+    RenderSettings.fogMode = FogMode.Linear;
+    RenderSettings.fogColor = new Color(0.06f, 0.06f, 0.09f);
+    RenderSettings.fogStartDistance = 1f;
+    RenderSettings.fogEndDistance = 15f;
+
+    Debug.Log("Ambient environment generated!");
+    }
+
+	//This method tags the spawns rooms
+	public void TagSpawnRooms(List<string> spawnRooms)
+	{
+		// Early exit if spawnRooms is null or empty
+		if (spawnRooms == null || spawnRooms.Count == 0)
+		{
+			Debug.LogWarning("No spawn rooms to tag.");
+			return;
+		}
+	
+		Debug.Log($"Tagging {spawnRooms.Count} rooms as spawn rooms: {string.Join(", ", spawnRooms)}");
+		
+		// Iterate through each room in our rooms collection
+		foreach (var kvp in rooms)
+		{
+			GameObject roomObj = kvp.Value;
+			
+			// Check if this room's name matches any in the spawnRooms list
+			if (spawnRooms.Contains(roomObj.name))
+			{
+				// Set the tag
+				roomObj.tag = "SpawnRoom";
+				Debug.Log($"Room {roomObj.name} tagged as SpawnRoom");
+			}
+		}
+	}		
+}	

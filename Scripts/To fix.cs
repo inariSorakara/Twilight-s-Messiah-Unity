@@ -1,2 +1,4 @@
 /*To Fix
-Instead of on the top left corner, the A1 room is instanced in the bottom left corner.*/
+° Some walls are looking to the wrong side
+° The parent floor is not being located, therefore we can't add the player to it's list of players inside.
+*/

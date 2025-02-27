@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class GameManager : MonoBehaviour
 {  
@@ -15,6 +16,7 @@ public class GameManager : MonoBehaviour
     public int game_start_players; // Number of players at the start of the game.
 
     public GameObject first_floor_map; // Reference to the first floor map prefab.
+    public Dictionary<string, GameObject> rooms; // Store the rooms generated
     #endregion
     
     #endregion
@@ -22,7 +24,7 @@ public class GameManager : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        start_game();
+        StartGame();
     }
 
     // Update is called once per frame
@@ -31,9 +33,9 @@ public class GameManager : MonoBehaviour
         
     }
 
-    public void start_game()
+    public void StartGame()
     {
-        Debug.Log("Game started.");
+        game_start_players = 1; // Set the number of players at the start of the game.
 
         //Call the random number generator.
         System.Random random = new System.Random(); // Random number generator.
@@ -41,24 +43,32 @@ public class GameManager : MonoBehaviour
         //Call the scene manager to generate the first floor.
         sceneManager.Generate_Floor(first_floor_map);
 
-        //Use the player manager to spawn players on the generated map,
-        // passing the number of players and the list of rooms from the scene manager.
-        // player_manager.spawn_players(number_of_players, scene_manager.rooms);
+        // Store the generated rooms in the GameManager's rooms dictionary
+        rooms = sceneManager.rooms;
 
-        // Retrieve the first player from the list of spawned players.
-	    //In Unity, you might search through GameObjects with a specified tag.
-	    // Public PlayerUnit current_player = get_first_player()
-        //This part is still just a placeholder until we develope a proper turn system.
+        //debug print the rooms list
+        string roomsContent = "";
+        foreach (var room in rooms)
+        {
+            roomsContent += "Room Name: " + room.Key + ", Room Object: " + room.Value.name + "\n";
+        }
+        Debug.Log(roomsContent);
 
-        //We wait a frame
-        //yield return new WaitForFixedUpdate();
+        Debug.Log("Type of keys: " + rooms.GetType().GetGenericArguments()[0].ToString());
+        Debug.Log("Type of values: " + rooms.GetType().GetGenericArguments()[1].ToString());
+
+        //Call the player manager to populate the spawn rooms.
+        playerManager.PopulateSpawnRooms(rooms, game_start_players);
+
+        //Call the scene manager to tag the spawn rooms.
+        sceneManager.TagSpawnRooms(playerManager.spawnRooms);
+
+        //Call the player manager once more to spawn the players this time
+        playerManager.SpawnPlayers(game_start_players);
+
+        //Call the scene manager again to generate the ambient.
+        sceneManager.Generate_Ambient();
 
         //Here we would include the logic to set up the HUD.
     }
-
-    //Around here could go the method that listens to the game over event.
-
-    //Method to get the first player from the group of alive players.
-    //In Unity, you could use GameObject.FindGameObjectsWithTag("players_alive")
-        
 }
