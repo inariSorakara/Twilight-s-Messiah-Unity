@@ -6,7 +6,7 @@ public class Floor : MonoBehaviour
     // Global Variables
 
     // List to track players inside this floor.
-    public List<GameObject> playersInside = new List<GameObject>();
+    public List<GameObject> unitsInside = new List<GameObject>();
 
     // Dictionary to store rooms.
     // Adjust the types if necessary.

@@ -56,7 +56,7 @@ public class SceneManager : MonoBehaviour
     Destroy(mapInstance);
 
     // Grid spacing for room placement; adjust this value based on your room prefab dimensions.
-    float gridSpacing = 5f;
+    float gridSpacing = 10f;
 
     // Ensure the rooms dictionary is initialized.
     if (floorScript.rooms == null)
@@ -85,24 +85,6 @@ public class SceneManager : MonoBehaviour
         room.name = roomName;
         room.GetComponent<RegularRoom>().RoomCoordinate = roomName;
 
-        // Update the IdLabel text
-        if (room.GetComponent<RegularRoom>().IdLabel != null)
-        {
-            TMP_Text tmp = room.GetComponent<RegularRoom>().IdLabel.GetComponent<TMP_Text>();
-            if (tmp != null)
-            {
-                tmp.text = roomName;
-            }
-            else
-            {
-                Debug.LogError("TMP_Text component not found on IdLabel in room " + roomName);
-            }
-        }
-        else
-        {
-            Debug.LogError("IdLabel is not assigned in RegularRoom script for room " + roomName);
-        }
-
         // Convert List<Vector3Int> to HashSet<Vector3Int>
         HashSet<Vector3Int> roomsToGenerateSet = new HashSet<Vector3Int>(rooms_to_generate);
 
@@ -115,11 +97,6 @@ public class SceneManager : MonoBehaviour
 
     // Store the generated rooms in the SceneManager's rooms dictionary
     rooms = floorScript.rooms;
-	Debug.Log("SceneManager rooms dictionary contents:");
-	foreach (var kvp in rooms)
-	{
-		Debug.Log($"Key: {kvp.Key}, Value name: {kvp.Value.name}");
-	}
 }
 
     public void Generate_Ambient()
@@ -140,8 +117,6 @@ public class SceneManager : MonoBehaviour
     RenderSettings.fogColor = new Color(0.06f, 0.06f, 0.09f);
     RenderSettings.fogStartDistance = 1f;
     RenderSettings.fogEndDistance = 15f;
-
-    Debug.Log("Ambient environment generated!");
     }
 
 	//This method tags the spawns rooms
@@ -153,8 +128,6 @@ public class SceneManager : MonoBehaviour
 			Debug.LogWarning("No spawn rooms to tag.");
 			return;
 		}
-	
-		Debug.Log($"Tagging {spawnRooms.Count} rooms as spawn rooms: {string.Join(", ", spawnRooms)}");
 		
 		// Iterate through each room in our rooms collection
 		foreach (var kvp in rooms)

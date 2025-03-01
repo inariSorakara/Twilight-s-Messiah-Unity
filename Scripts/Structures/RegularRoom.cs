@@ -7,8 +7,6 @@ public class RegularRoom : MonoBehaviour //Defines the class
     #region Room METAdata
     public string RoomCoordinate;
     public string RoomEventType;
-
-    public GameObject IdLabel; // = ID Label. Exposed in the inspector.
     
     #endregion
 
@@ -23,20 +21,21 @@ public class RegularRoom : MonoBehaviour //Defines the class
 
     public GameObject wall_door; // = Wall with a door prefab. Exposed in the inspector.
 
-    // Add this to track players
+    // Add this to track Units
     [HideInInspector]
 
     // Reference to the parent floor
     private GameObject parentFloor;
     
 
-    public List<GameObject> playersInRoom = new List<GameObject>();
+    public List<GameObject> unitsInRoom = new List<GameObject>();
 
     #endregion
 
     // Called once when the script is loaded. Akin to ready()
     void Start()
     {
+        parentFloor = transform.parent.gameObject;
     }
 
 
@@ -97,9 +96,6 @@ public class RegularRoom : MonoBehaviour //Defines the class
         {
             ReplaceObject(Wall_1, wall_door);
         }
-
-        // Cache reference to parent floor
-        parentFloor = transform.parent.gameObject;
     }
 
     public void LocateNeighbors(string cell, List<Vector3Int> rooms_to_generate, out bool hasWestNeighbor, out bool hasEastNeighbor, out bool hasNorthNeighbor, out bool hasSouthNeighbor)
@@ -146,40 +142,41 @@ public class RegularRoom : MonoBehaviour //Defines the class
         return new Vector3Int(x, y, z);
     }
 
-    // This method is called when something enters the trigger zone
+    // This method is called when something enters the room's trigger collider
     private void OnTriggerEnter(Collider other)
     {
-        // Check if the object that entered is a player
+        // Check if the object that entered is a Unit
         if (other.CompareTag("PlayersAlive"))
         {
-            GameObject player = other.gameObject;
+            GameObject Unit = other.gameObject;
             
-            // Add player to this room's list if not already there
-            if (!playersInRoom.Contains(player))
+            // Add Unit to this room's list if not already there
+            if (!unitsInRoom.Contains(Unit))
             {
-                playersInRoom.Add(player);
+                unitsInRoom.Add(Unit);
+                Debug.Log($"{Unit.name} entered room {gameObject.name}");
             }
             
-            // Update player's current room reference
-            PlayerData playerData = player.GetComponent<PlayerData>();
-            if (playerData != null)
+            // Update Unit's current room reference
+            UnitData UnitData = Unit.GetComponent<UnitData>();
+            if (UnitData != null)
             {
-                playerData.currentRoom = gameObject;
+                UnitData.currentRoom = gameObject;
             }
             else
             {
-                Debug.LogError("PlayerData component not found on player.");
+                Debug.LogError("PlayerData component not found on Unit.");
             }
             
-            // Add player to floor's players inside list
+            // Add Unit to floor's Units inside list
             if (parentFloor != null)
             {
                 Floor floorComponent = parentFloor.GetComponent<Floor>();
                 if (floorComponent != null)
                 {
-                    if (!floorComponent.playersInside.Contains(player))
+                    if (!floorComponent.unitsInside.Contains(Unit))
                     {
-                        floorComponent.playersInside.Add(player);
+                        floorComponent.unitsInside.Add(Unit);
                     }
                 }
                 else
@@ -187,52 +184,55 @@ public class RegularRoom : MonoBehaviour //Defines the class
                     Debug.LogError("Floor component not found on parent floor.");
                 }
             }
-            else
-            {
-                Debug.LogError("Parent floor is null.");
-            }
             
             // Start coroutine for any delayed actions
-            StartCoroutine(PlayerEnteredRoom(player));
+            StartCoroutine(PlayerEnteredRoom(Unit));
         }
     }
 
-    private IEnumerator PlayerEnteredRoom(GameObject player)
+    // This method is called when something exits the room's trigger collider
+    private void OnTriggerExit(Collider other)
     {
-        // Log that player entered room using the parent's name
-        if (transform.parent != null)
+        // Check if the object that left is a Unit
+        if (other.CompareTag("PlayersAlive"))
         {
-            Debug.Log($"{player.name} entered room {transform.parent.name}");
-        }
-        else
-        {
-            Debug.Log($"{player.name} entered room (no parent)");
-        }
-        
-        // Wait a moment (similar to the await in Godot)
-        yield return new WaitForSeconds(0.5f);
-        
-        // If the parent has the SpawnRoom tag, remove it
-        if (transform.parent != null && transform.parent.CompareTag("SpawnRoom"))
-        {
-            transform.parent.tag = "Untagged";  // Change tag to untagged room
-            Debug.Log($"{transform.parent.name} isn't a Spawn Room anymore.");
-        }
-        
-        // Here you would handle events similar to the Godot version
-        // For now, just a placeholder
-        if (transform.parent != null)
-        {
-            Debug.Log($"Room {transform.parent.name} ready for events");
-        }
-        else
-        {
-            Debug.Log("Room (no parent) ready for events");
+            GameObject Unit = other.gameObject;
+            
+            // Remove Unit from this room's list
+            if (unitsInRoom.Contains(Unit))
+            {
+                unitsInRoom.Remove(Unit);
+                Debug.Log($"{Unit.name} exited room {gameObject.name}");
+            }
         }
     }
+
+    private IEnumerator PlayerEnteredRoom(GameObject Unit)
+    {   
+        // If this room has the SpawnRoom tag, remove it
+        if (gameObject.CompareTag("SpawnRoom"))
+        {
+            gameObject.tag = "Untagged";  // Change tag to untagged room
+            Debug.Log($"{gameObject.name} isn't a Spawn Room anymore.");
+        }
+        
+        // Notify the HUD Manager about the Unit entering this room
+        HudManager hudManager = HudManager.Instance;
+        if (hudManager != null)
+        {
+            hudManager.OnUnitEnteredRoom(gameObject);
+        }
+        else
+        {
+            Debug.LogWarning("No HUD Manager found in scene!");
+        }
+        
+        // Add a yield return to complete the coroutine
+        yield return null;
+    }
+}
         
         // In the future, you could implement:
         // - Random event selection
         // - Event triggering
         // - Signal emission (using events in C#)
-    }

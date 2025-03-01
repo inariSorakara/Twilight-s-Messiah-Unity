@@ -46,7 +46,7 @@ public class PlayerManager : MonoBehaviour
             }
         }
 
-        Debug.Log($"Map size determined: {maxX}x{maxY}");
+        
 
         // Define the corners
         List<string> corners = new List<string>
@@ -57,7 +57,7 @@ public class PlayerManager : MonoBehaviour
             $"{(char)('A' + maxX - 1)}{maxY}"
         };
 
-        Debug.Log($"Corner rooms: {string.Join(", ", corners)}");
+        
 
         // Add corners to spawn rooms
         for (int i = 0; i < Mathf.Min(numberOfPlayers, corners.Count); i++)
@@ -67,11 +67,11 @@ public class PlayerManager : MonoBehaviour
             if (roomExists)
             {
                 spawnRooms.Add(corners[i]);
-                Debug.Log($"Added corner room {corners[i]} to spawn rooms");
+                
             }
             else
             {
-                Debug.LogWarning($"Corner room {corners[i]} not found in scene");
+                
             }
         }
 
@@ -104,7 +104,7 @@ public class PlayerManager : MonoBehaviour
                 additionalRooms.Add($"A{i + 1}");
             }
 
-            Debug.Log($"Additional rooms: {string.Join(", ", additionalRooms)}");
+            
 
             // Add additional rooms to spawn rooms, verifying each exists
             for (int i = spawnRooms.Count; i < numberOfPlayers && i - spawnRooms.Count < additionalRooms.Count; i++)
@@ -116,13 +116,13 @@ public class PlayerManager : MonoBehaviour
                 if (roomExists)
                 {
                     spawnRooms.Add(roomToAdd);
-                    Debug.Log($"Added additional room {roomToAdd} to spawn rooms");
+                    
                 }
             }
         }
 
         // Log the final spawn rooms for debugging
-        Debug.Log("Final Spawn Rooms: " + string.Join(", ", spawnRooms));
+        
     }
 
     public void SpawnPlayers(int numberOfPlayers)
@@ -132,11 +132,11 @@ public class PlayerManager : MonoBehaviour
         
         if (spawnRoomObjects == null || spawnRoomObjects.Length == 0)
         {
-            Debug.LogError("No spawn rooms found in scene. Make sure rooms are properly tagged as 'SpawnRoom'.");
+            
             return;
         }
         
-        Debug.Log($"Found {spawnRoomObjects.Length} spawn rooms in the scene: {string.Join(", ", spawnRoomObjects.Select(r => r.name))}");
+        
     
         // Ensure we don't try to spawn more players than we have spawn rooms for
         int playersToSpawn = Mathf.Min(numberOfPlayers, spawnRoomObjects.Length);
@@ -162,32 +162,42 @@ public class PlayerManager : MonoBehaviour
             // Get the spawn room for this player
             GameObject spawnRoom = spawnRoomObjects[i];
             
-            // Check if the spawn room has a child object (trigger zone)
-            GameObject triggerZone = spawnRoom.transform.childCount > 0 ? spawnRoom.transform.GetChild(0).gameObject : null;
+            // Get the BoxCollider of the room
+            BoxCollider roomCollider = spawnRoom.GetComponent<BoxCollider>();
             Vector3 spawnPosition;
             
-            if (triggerZone != null)
+            if (roomCollider != null)
             {
-                // Use the TriggerZone's position plus the specific offset to get to the center
-                spawnPosition = triggerZone.transform.position + new Vector3(1.92f, 0.5f, -1.99f);
-                Debug.Log($"Using trigger zone in {spawnRoom.name} with position {triggerZone.transform.position}");
+                // Calculate the center of the collider in world space
+                // This gives us the exact center of the room's trigger volume
+                spawnPosition = spawnRoom.transform.TransformPoint(roomCollider.center);
+                
+                // Add a small Y offset to ensure the player is above the floor
+                spawnPosition.y += 0.5f;
+                
+                Debug.Log($"Spawning player at center of room collider: {spawnPosition}");
             }
             else
             {
-                // Fallback to using the room's position
+                // Fallback to using the room's position if no collider found
                 spawnPosition = spawnRoom.transform.position + new Vector3(0, 0.5f, 0);
-                Debug.Log($"No trigger zone found in {spawnRoom.name}, using room position");
+                Debug.LogWarning($"Room {spawnRoom.name} has no BoxCollider! Using default position.");
             }
             
             // Set the player's position
             newPlayer.transform.position = spawnPosition;
             
-            Debug.Log($"Player {i + 1} spawned in room {spawnRoom.name} at position {spawnPosition}");
-
-            newPlayer.GetComponent<PlayerData>().currentRoom = spawnRoom;
+            newPlayer.GetComponent<UnitData>().currentRoom = spawnRoom;
 
             // Set player rotation based on the room
             SetPlayerRotation(newPlayer);
+
+            HudManager hudManager = HudManager.Instance;
+             if (hudManager != null)
+             {
+                hudManager.OnPlayerSpawned(newPlayer);
+            }
+
         }
     }
 
@@ -198,10 +208,10 @@ public class PlayerManager : MonoBehaviour
             return;
 
         // Retrieve the current room from the player's PlayerData component
-        GameObject spawnRoom = player.GetComponent<PlayerData>()?.currentRoom;
+        GameObject spawnRoom = player.GetComponent<UnitData>()?.currentRoom;
         if (spawnRoom == null)
         {
-            Debug.LogWarning("Player's currentRoom is not set.");
+            
             return;
         }
 
@@ -210,13 +220,13 @@ public class PlayerManager : MonoBehaviour
         {
             // Room name ends with 1 (top row) - Face south (180 degrees)
             player.transform.rotation = Quaternion.Euler(0, -180, 0);
-            Debug.Log($"Player in room {roomName} (top row) rotated to face south");
+            
         }
         else
         {
             // All other rooms - Face north (0 degrees)
             player.transform.rotation = Quaternion.Euler(0, 0, 0);
-            Debug.Log($"Player in room {roomName} set to default rotation (north)");
+            
         }
     }
 }
