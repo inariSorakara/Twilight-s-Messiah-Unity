@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: 1f076877f1e51f443acb37afa6da0a6f
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - QuartzEvent: {fileID: 11400000, guid: c1dc5fb8e0b7b564999d29784fb49d0d, type: 2}
+  - CopperEvent: {fileID: 11400000, guid: 2fa9e0ad1620e604db3ab421d6fc8763, type: 2}
+  - BronzeEvent: {fileID: 11400000, guid: 27f3b8d8b35268e47acc8aff9c4d9345, type: 2}
+  - SilverEvent: {fileID: 11400000, guid: 25a990f6e3483514e9b7863d364efb5d, type: 2}
+  - IronEvent: {fileID: 11400000, guid: 6b0a91ed15c0429488aa666b596a9a5b, type: 2}
+  - EmeraldEvent: {fileID: 11400000, guid: f489710778f7d9c47800f0c91a2b0b6f, type: 2}
+  - GoldEvent: {fileID: 11400000, guid: 40120fa2d7de6bc41a8aa662a198a60b, type: 2}
+  - RhinestoneEvent: {fileID: 11400000, guid: 76285e21912058c479446347c4ceab9a, type: 2}
+  - AmethystEvent: {fileID: 11400000, guid: 440028dff66b1d34f8946deb2faed56c, type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

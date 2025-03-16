@@ -1,2 +1,18 @@
 fileFormatVersion: 2
 guid: 560fcaf1f723c104e872cedf6ea2dbf5
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - QuartzEvent: {fileID: 11400000, guid: c1dc5fb8e0b7b564999d29784fb49d0d, type: 2}
+  - RoomEventType: {instanceID: 0}
+  - Wall_1: {instanceID: 0}
+  - NorthWall: {instanceID: 0}
+  - SouthWall: {instanceID: 0}
+  - WestWall: {instanceID: 0}
+  - wall_door: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -132,12 +132,10 @@ public class PlayerManager : MonoBehaviour
         
         if (spawnRoomObjects == null || spawnRoomObjects.Length == 0)
         {
-            
+            Debug.LogError("No spawn rooms found!");
             return;
         }
-        
-        
-    
+
         // Ensure we don't try to spawn more players than we have spawn rooms for
         int playersToSpawn = Mathf.Min(numberOfPlayers, spawnRoomObjects.Length);
         
@@ -155,63 +153,90 @@ public class PlayerManager : MonoBehaviour
             // Tag the player
             newPlayer.tag = "PlayersAlive";
             
-            /* 
-            // Party management code (commented)
-            */
-            
             // Get the spawn room for this player
             GameObject spawnRoom = spawnRoomObjects[i];
             
-            // Get the BoxCollider of the room
-            BoxCollider roomCollider = spawnRoom.GetComponent<BoxCollider>();
-            Vector3 spawnPosition;
-            
-            if (roomCollider != null)
-            {
-                // Calculate the center of the collider in world space
-                // This gives us the exact center of the room's trigger volume
-                spawnPosition = spawnRoom.transform.TransformPoint(roomCollider.center);
-                
-                // Add a small Y offset to ensure the player is above the floor
-                spawnPosition.y += 0.5f;
-                
-                Debug.Log($"Spawning player at center of room collider: {spawnPosition}");
-            }
-            else
-            {
-                // Fallback to using the room's position if no collider found
-                spawnPosition = spawnRoom.transform.position + new Vector3(0, 0.5f, 0);
-                Debug.LogWarning($"Room {spawnRoom.name} has no BoxCollider! Using default position.");
-            }
+            // Calculate spawn position
+            Vector3 spawnPosition = CalculateSpawnPosition(spawnRoom);
             
             // Set the player's position
             newPlayer.transform.position = spawnPosition;
             
-            newPlayer.GetComponent<UnitData>().currentRoom = spawnRoom;
+            // Initialize player data
+            InitializePlayerData(newPlayer, spawnRoom);
 
             // Set player rotation based on the room
             SetPlayerRotation(newPlayer);
 
-            HudManager hudManager = HudManager.Instance;
-             if (hudManager != null)
-             {
-                hudManager.OnPlayerSpawned(newPlayer);
-            }
-
+            // Notify HUD Manager about new player
+            NotifyHudManager(newPlayer);
         }
     }
-
+    
+    // Helper method to calculate spawn position
+    private Vector3 CalculateSpawnPosition(GameObject spawnRoom)
+    {
+        // Get the BoxCollider of the room
+        BoxCollider roomCollider = spawnRoom.GetComponent<BoxCollider>();
+        Vector3 spawnPosition;
+        
+        if (roomCollider != null)
+        {
+            // Calculate the center of the collider in world space
+            spawnPosition = spawnRoom.transform.TransformPoint(roomCollider.center);
+            
+            // Add a small Y offset to ensure the player is above the floor
+            spawnPosition.y += 0.5f;
+        }
+        else
+        {
+            // Fallback to using the room's position if no collider found
+            spawnPosition = spawnRoom.transform.position + new Vector3(0, 0.5f, 0);
+            Debug.LogWarning($"Room {spawnRoom.name} has no BoxCollider! Using default position.");
+        }
+        
+        return spawnPosition;
+    }
+    
+    // Helper method to initialize player data
+    private void InitializePlayerData(GameObject player, GameObject spawnRoom)
+    {
+        UnitData unitData = player.GetComponent<UnitData>();
+        if (unitData != null)
+        {
+            // Set current room reference
+            unitData.currentRoom = spawnRoom;
+            
+            // Set basic attributes
+            unitData.unitName = player.name;
+            
+            // Initialize derived stats like health, stance, etc.
+            // These are already calculated in UnitData.Awake()
+            
+            // Initialize memoria
+            unitData.unitCurrentMemoria = 0;
+            unitData.unitTotalMemoria = 0;
+            
+            // Initialize level
+            unitData.unitLevel = 1;
+        }
+        else
+        {
+            Debug.LogError($"UnitData component missing on player {player.name}");
+        }
+    }
+    
     // Call this method in your SpawnPlayers method to set player rotation based on their current room:
     private void SetPlayerRotation(GameObject player)
     {
         if (player == null)
             return;
 
-        // Retrieve the current room from the player's PlayerData component
+        // Retrieve the current room from the player's UnitData component
         GameObject spawnRoom = player.GetComponent<UnitData>()?.currentRoom;
         if (spawnRoom == null)
         {
-            
+            Debug.LogWarning("Player has no current room set");
             return;
         }
 
@@ -220,13 +245,25 @@ public class PlayerManager : MonoBehaviour
         {
             // Room name ends with 1 (top row) - Face south (180 degrees)
             player.transform.rotation = Quaternion.Euler(0, -180, 0);
-            
         }
         else
         {
             // All other rooms - Face north (0 degrees)
             player.transform.rotation = Quaternion.Euler(0, 0, 0);
-            
+        }
+    }
+    
+    // Helper method to notify HudManager
+    private void NotifyHudManager(GameObject player)
+    {
+        HudManager hudManager = HudManager.Instance;
+        if (hudManager != null)
+        {
+            hudManager.OnPlayerSpawned(player);
+        }
+        else
+        {
+            Debug.LogWarning("HudManager instance not found");
         }
     }
 }

@@ -28,6 +28,7 @@ public class SceneManager : MonoBehaviour
 		if (floorScript != null)
 		{
 			floorScript.memoriaRequired = 100 * floorNumber;
+            floorScript.floorNumber = floorNumber; // Set the floor number property
 		}
 
 		// Instantiate the given floor map and set it as a child of the new Scene Manager
@@ -139,8 +140,7 @@ public class SceneManager : MonoBehaviour
 			{
 				// Set the tag
 				roomObj.tag = "SpawnRoom";
-				Debug.Log($"Room {roomObj.name} tagged as SpawnRoom");
 			}
 		}
 	}		
-}	
+}

@@ -12,9 +12,7 @@ public class FloorMap : MonoBehaviour
     // Awake is called immediately when the script instance is loaded
     void Awake()
     { 
-        Debug.Log("FloorMap awake.");
         used_cells = GetUsedCellsFromTilemap();
-        Debug.Log("used_cells updated in Awake.");
     }
 
     void Update()

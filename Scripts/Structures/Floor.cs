@@ -5,6 +5,9 @@ public class Floor : MonoBehaviour
 {
     // Global Variables
 
+    // Floor number (1, 2, 3, etc.)
+    public int floorNumber;
+    
     // List to track players inside this floor.
     public List<GameObject> unitsInside = new List<GameObject>();
 

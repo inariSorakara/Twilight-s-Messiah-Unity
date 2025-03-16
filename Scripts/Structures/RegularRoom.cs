@@ -3,10 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 
 public class RegularRoom : MonoBehaviour //Defines the class
-{   // Variables accessible anywhere inside this RegularRoom instance.
+{   
+    // Variables accessible anywhere inside this RegularRoom instance.
     #region Room METAdata
     public string RoomCoordinate;
-    public string RoomEventType;
+    public EventTypeSO RoomEventType;
     
     #endregion
 
@@ -36,6 +37,7 @@ public class RegularRoom : MonoBehaviour //Defines the class
     void Start()
     {
         parentFloor = transform.parent.gameObject;
+        return;
     }
 
 
@@ -70,7 +72,6 @@ public class RegularRoom : MonoBehaviour //Defines the class
             replacementInstance.transform.Rotate(0, 90, 0);
         }
     }
-
 
 //This method replaces the room's walls with door walls if necessary.
     public void UpdateWalls(string cell, List<Vector3Int> rooms_to_generate)
@@ -141,6 +142,7 @@ public class RegularRoom : MonoBehaviour //Defines the class
 
         return new Vector3Int(x, y, z);
     }
+
 
     // This method is called when something enters the room's trigger collider
     private void OnTriggerEnter(Collider other)
@@ -213,9 +215,54 @@ public class RegularRoom : MonoBehaviour //Defines the class
         if (gameObject.CompareTag("SpawnRoom"))
         {
             gameObject.tag = "Untagged";  // Change tag to untagged room
-            Debug.Log($"{gameObject.name} isn't a Spawn Room anymore.");
         }
-        
+        else
+        {
+            if (RoomEventType == null)
+            {
+                // Use EventManager to assign an event type instead of picking locally
+                if (EventManager.Instance != null)
+                {
+                    RoomEventType = EventManager.Instance.AssignEventToRoom(gameObject);
+                    
+                    if (RoomEventType == null)
+                    {
+                        Debug.LogError($"Failed to assign event to Room {RoomCoordinate} from EventManager");
+                    }
+                }
+                else
+                {
+                    Debug.LogError("EventManager instance not found for event assignment");
+                }
+            }
+            
+            if (RoomEventType != null)
+            {
+                // Get the player's UnitData component
+                UnitData playerData = Unit.GetComponent<UnitData>();
+                if (playerData != null)
+                {
+                    Debug.Log($"Triggering {RoomEventType.name} event in room {RoomCoordinate}");
+                    
+                    // Use EventManager instead of direct triggering
+                    if (EventManager.Instance != null)
+                    {
+                        EventManager.Instance.HandleRoomEvent(Unit, RoomEventType, gameObject);
+                    }
+                    else
+                    {
+                        // Fallback to direct triggering if EventManager isn't available
+                        Debug.LogWarning("EventManager not found. Falling back to direct event triggering.");
+                        RoomEventType.TriggerEvent(Unit);
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"Cannot trigger event: UnitData component missing on {Unit.name}");
+                }
+            }
+        }
+
         // Notify the HUD Manager about the Unit entering this room
         HudManager hudManager = HudManager.Instance;
         if (hudManager != null)
@@ -230,9 +277,6 @@ public class RegularRoom : MonoBehaviour //Defines the class
         // Add a yield return to complete the coroutine
         yield return null;
     }
+
+    // Remove the PickRandomEvent method since this logic is now in EventManager
 }
-        
-        // In the future, you could implement:
-        // - Random event selection
-        // - Event triggering
-        // - Signal emission (using events in C#)

@@ -1,7 +1,5 @@
 using UnityEngine;
-using UnityEngine.UI; // For UI elements
 using TMPro;
-using Unity.VisualScripting;
 using System.Collections;
 
 public class HudManager : MonoBehaviour
@@ -208,9 +206,6 @@ public class HudManager : MonoBehaviour
                     memoriaMeterText.text = $"{percentageInt}%";
                 }
                 
-                // Debug the calculation
-                Debug.Log($"Memoria meter calculation: {totalMemoria}/{requiredFloorMemoria} = {percentage}%");
-                
                 // Start tweening the memoria meter
                 memoriaMeterTweenRoutine = StartCoroutine(TweenMemoriaMeter(percentageInt));
             }
@@ -381,8 +376,11 @@ public class HudManager : MonoBehaviour
                 UpdateRoomName(roomNameToShow);
                 
                 // Update room event type
-                string eventTypeToShow = !string.IsNullOrEmpty(roomScript.RoomEventType) ?
-                                        roomScript.RoomEventType : "???";
+                string eventTypeToShow = "???";
+                if (roomScript.RoomEventType != null)
+                {
+                    eventTypeToShow = roomScript.RoomEventType.name;
+                }
                 UpdateRoomEvent(eventTypeToShow);
                 
                 // Get parent floor and update floor name
@@ -390,7 +388,6 @@ public class HudManager : MonoBehaviour
                 {
                     string floorName = currentFloor.name;
                     UpdateFloorName(floorName);
-                    Debug.Log($"HUD updated - Room: {roomNameToShow}, Event: {eventTypeToShow}, Floor: {floorName}");
                     
                     // Update memoria meter for this floor
                     if (currentPlayer != null)
@@ -406,7 +403,6 @@ public class HudManager : MonoBehaviour
                 {
                     UpdateFloorName("Unknown Floor");
                     Debug.LogWarning("Room has no parent floor!");
-                    Debug.Log($"HUD updated - Room: {roomNameToShow}, Event: {eventTypeToShow}, Floor: Unknown");
                 }
             }
             else

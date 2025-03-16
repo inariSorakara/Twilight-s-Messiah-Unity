@@ -8,6 +8,8 @@ public class GameManager : MonoBehaviour
     #region Managers
     public PlayerManager playerManager; // Reference to the PlayerManager class.
     public SceneManager sceneManager; // Reference to the SceneManager class.
+    public EventManager eventManager; // Reference to the EventManager class.
+    
     #endregion
 
     #region Game Information
@@ -17,6 +19,12 @@ public class GameManager : MonoBehaviour
     #endregion
     
     #endregion
+
+    void Awake()
+    {
+        // Make the entire GameManager (and its children) persist
+        DontDestroyOnLoad(gameObject);
+    }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
