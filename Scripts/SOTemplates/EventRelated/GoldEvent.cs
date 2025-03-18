@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+/*using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "New Gold Event", menuName = "Twilight's Messiah/Events/GoodOmen/Gold")]
@@ -192,3 +192,4 @@ public class GoldEventSO : EventTypeSO
         }
     }
 }
+*/

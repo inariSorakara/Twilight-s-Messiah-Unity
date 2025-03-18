@@ -1,30 +1,16 @@
-using UnityEngine;
+/*using UnityEngine;
 
 [CreateAssetMenu(fileName = "New Memoria Check", menuName = "Twilight's Messiah/Event Behaviours/Memoria Check")]
 public class MemoriaCheckBehaviour : EventBehaviourSO
 {
-    public enum MemoriaType
-    {
-        Current,
-        Total
-    }
-    
-    public enum ComparisonType
-    {
-        LessThan,
-        LessThanOrEqual,
-        Equal,
-        GreaterThanOrEqual,
-        GreaterThan
-    }
-    
-    [Header("Memoria Check Configuration")]
-    [SerializeField] private MemoriaType memoriaToCheck = MemoriaType.Total;
-    [SerializeField] private ComparisonType comparison = ComparisonType.GreaterThanOrEqual;
-    
-    [Header("Success/Failure Routing")]
-    [SerializeField] private string successResultKey = "MemoriaCheckPassed";
-    [SerializeField] private string failureResultKey = "MemoriaCheckFailed";
+    [Header("Sub-Behaviors")]
+    [Tooltip("Behaviors to execute when the memoria check passes")]
+    [SerializeField] private EventBehaviourSO[] successBehaviours;
+    [Tooltip("Behaviors to execute when the memoria check fails")]
+    [SerializeField] private EventBehaviourSO[] failureBehaviours;
+    [Tooltip("If true, will stop after first sub-behavior that returns false")]
+    [SerializeField] private bool stopOnSubBehaviourFailure = true;
+    [Tooltip("If true, execution will stop if the memoria check fails")]
     [SerializeField] private bool stopOnFailure = false;
 
     [Header("Debugging")]
@@ -37,31 +23,68 @@ public class MemoriaCheckBehaviour : EventBehaviourSO
             Debug.Log($"<color=cyan>[MemoriaCheck]</color> {message}");
     }
     
-    public override bool Execute(GameObject unit, EventContext context)
+    // Override the direct execution method
+    public override bool Execute(GameObject unit)
     {
-        UnitData playerData = GetComponent<UnitData>(unit);
-        if (playerData == null) return false;
+        UnitData playerData = unit.GetComponent<UnitData>();
+        if (playerData == null) 
+        {
+            Debug.LogError("UnitData component not found on unit");
+            return false;
+        }
         
-        int requiredAmount = GetRequiredAmount(playerData);
-        int playerMemoria = GetPlayerMemoria(playerData);
+        int floorRequirement = GetFloorRequirement(playerData);
+        int playerMemoria = playerData.unitTotalMemoria;
         
-        bool checkPassed = EvaluateComparison(playerMemoria, requiredAmount);
+        bool checkPassed = playerMemoria >= floorRequirement;
         
-        // Store result in context for other behaviors to use
-        context.SetData(successResultKey, checkPassed);
-        context.SetData(failureResultKey, !checkPassed);
+        LogDebug($"Memoria check: Player has {playerMemoria}, floor requires {floorRequirement}. Result: {(checkPassed ? "Success" : "Failure")}");
         
-        // Add required amount to context for display or other uses
-        context.SetData("RequiredMemoria", requiredAmount);
+        // Execute appropriate sub-behaviors based on the check result
+        bool subBehaviorsResult = true;
+        if (checkPassed && successBehaviours != null && successBehaviours.Length > 0)
+        {
+            LogDebug($"Executing {successBehaviours.Length} success behaviors");
+            subBehaviorsResult = ExecuteSubBehaviors(successBehaviours, unit);
+        }
+        else if (!checkPassed && failureBehaviours != null && failureBehaviours.Length > 0)
+        {
+            LogDebug($"Executing {failureBehaviours.Length} failure behaviors");
+            subBehaviorsResult = ExecuteSubBehaviors(failureBehaviours, unit);
+        }
         
-        LogDebug($"Memoria check: Player has {playerMemoria}, needed {requiredAmount}. Result: {(checkPassed ? "Success" : "Failure")}");
-        
-        return !stopOnFailure || checkPassed;
+        // Return based on both the check result and sub-behaviors execution
+        bool finalResult = checkPassed && subBehaviorsResult;
+        return !stopOnFailure || finalResult;
     }
     
-    private int GetRequiredAmount(UnitData playerData)
+    // Legacy context-based execution - forwards to direct execution
+    public override bool Execute(GameObject unit, EventContext context)
     {
-        // Always attempt to get the required memoria from the Floor component
+        return Execute(unit);
+    }
+    
+    private bool ExecuteSubBehaviors(EventBehaviourSO[] behaviors, GameObject unit)
+    {
+        foreach (var behavior in behaviors)
+        {
+            if (behavior == null) continue;
+            
+            bool behaviorResult = behavior.Execute(unit);
+            LogDebug($"Sub-behavior {behavior.name} execution result: {behaviorResult}");
+            
+            if (!behaviorResult && stopOnSubBehaviourFailure)
+            {
+                LogDebug("Stopping sub-behavior execution due to failure");
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    private int GetFloorRequirement(UnitData playerData)
+    {
+        // Get the current floor's memoria requirement
         if (playerData.currentRoom != null)
         {
             Transform floorTransform = playerData.currentRoom.transform.parent;
@@ -75,58 +98,9 @@ public class MemoriaCheckBehaviour : EventBehaviourSO
                 }
             }
         }
-
-        // Fallback: Calculate using floor number if no Floor component is found
-        int fallbackAmount = 100;
-        LogDebug($"Fallback amount for required memoria: {fallbackAmount}");
-        return fallbackAmount;
-    }
-    
-    private int GetPlayerMemoria(UnitData playerData)
-    {
-        int memoria = memoriaToCheck == MemoriaType.Current ? 
-                      playerData.unitCurrentMemoria : 
-                      playerData.unitTotalMemoria;
-        LogDebug($"Player's {memoriaToCheck} memoria: {memoria}");
-        return memoria;
-    }
-    
-    private int GetCurrentFloor(UnitData playerData)
-    {
-        if (playerData.currentRoom != null)
-        {
-            Transform floorTransform = playerData.currentRoom.transform.parent;
-            if (floorTransform != null)
-            {
-                Floor floorComponent = floorTransform.GetComponent<Floor>();
-                if (floorComponent != null)
-                {
-                    LogDebug($"Determined floor number from Floor component: {floorComponent.floorNumber}");
-                    return floorComponent.floorNumber;
-                }
-            }
-        }
-
-        LogDebug("Defaulting to floor 1 as a fallback.");
-        return 1;
-    }
-    
-    private bool EvaluateComparison(int playerValue, int requiredValue)
-    {
-        switch (comparison)
-        {
-            case ComparisonType.LessThan:
-                return playerValue < requiredValue;
-            case ComparisonType.LessThanOrEqual:
-                return playerValue <= requiredValue;
-            case ComparisonType.Equal:
-                return playerValue == requiredValue;
-            case ComparisonType.GreaterThanOrEqual:
-                return playerValue >= requiredValue;
-            case ComparisonType.GreaterThan:
-                return playerValue > requiredValue;
-            default:
-                return false;
-        }
+        
+        LogDebug("Could not determine floor requirement, defaulting to 0");
+        return 0; // Default to 0 if no floor is found
     }
 }
+*/

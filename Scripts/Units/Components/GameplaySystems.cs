@@ -657,6 +657,20 @@ public class GameplaySystems : MonoBehaviour
         
         return false;
     }
+
+    // Helper method to get floor's memoria requirement
+    public int GetFloorMemoriaRequirement(UnitData unitData)
+    {
+        if (unitData.currentFloor != null)
+        {
+            Floor floorComponent = unitData.currentFloor.GetComponent<Floor>();
+            if (floorComponent != null)
+            {
+                return floorComponent.memoriaRequired;
+            }
+        }
+        return 100; // Default value
+    }
     
     #endregion
 }

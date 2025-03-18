@@ -1,64 +1,34 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 using System;
 
 public class EventManager : MonoBehaviour
 {
+    #region Core Properties
     // Singleton instance
     public static EventManager Instance { get; private set; }
     
-    [Header("Event Templates")]
+    [Header("Event Registry")]
     [SerializeField] private List<EventTypeSO> eventTemplates = new List<EventTypeSO>();
-    
-    // Dictionary for faster event lookup by name
     private Dictionary<string, EventTypeSO> eventsByName = new Dictionary<string, EventTypeSO>();
     
-    // Event delegates - these remain unchanged
+    // Event delegates
     public delegate void EventStartedHandler(GameObject unit, EventTypeSO eventType);
     public delegate void EventFinishedHandler(GameObject unit, EventTypeSO eventType, bool success);
-    public delegate void EventTransformedHandler(GameObject unit, EventTypeSO oldEvent, EventTypeSO newEvent);
-    public delegate void GameOverHandler(GameObject unit, bool victory);
-    public delegate void BattleStartedHandler(GameObject player, GameObject enemy);
-    public delegate void BattleEndedHandler(GameObject player, GameObject enemy, bool playerWon);
     
-    // Events that other systems can subscribe to - unchanged
+    // Events that other systems can subscribe to
     public event EventStartedHandler OnEventStarted;
     public event EventFinishedHandler OnEventFinished;
-    public event EventTransformedHandler OnEventTransformed;
-    public event GameOverHandler OnGameOver;
-    public event BattleStartedHandler OnBattleStarted;
-    public event BattleEndedHandler OnBattleEnded;
     
-    // Track active events - unchanged
-    private Dictionary<GameObject, EventState> activeEvents = new Dictionary<GameObject, EventState>();
-    private Dictionary<GameObject, BattleState> activeBattles = new Dictionary<GameObject, BattleState>();
+    // Active events tracking
+    private Dictionary<GameObject, EventTypeSO> activeEvents = new Dictionary<GameObject, EventTypeSO>();
     
-    // Classes to track event and battle state - unchanged
-    private class EventState
-    {
-        public EventTypeSO currentEvent;
-        public GameObject unit;
-        public bool isActive;
-        public float startTime;
-    }
-    
-    private class BattleState
-    {
-        public GameObject player;
-        public GameObject enemy;
-        public bool isActive;
-        public float startTime;
-    }
-
-    // Add debug mode toggle
+    [Header("Debug Settings")]
     public bool debugMode = false;
-
-    private void LogDebug(string message)
-    {
-        if (debugMode)
-            Debug.Log($"<color=cyan>[EventManager]</color> {message}");
-    }
-
+    #endregion
+    
+    #region Initialization
     private void Awake()
     {
         // Initialize the singleton instance
@@ -68,85 +38,127 @@ public class EventManager : MonoBehaviour
         }
         else if (Instance != this)
         {
-            // If another instance exists, destroy this one
             Destroy(gameObject);
             return;
         }
         
-        // Continue with your existing code
+        // Build event dictionary
         BuildEventDictionary();
     }
     
     private void BuildEventDictionary()
     {
         eventsByName.Clear();
-        int validCount = 0;
-        int nullCount = 0;
-        int duplicateCount = 0;
         
         foreach (var eventTemplate in eventTemplates)
         {
-            if (eventTemplate == null)
-            {
-                nullCount++;
-                continue;
-            }
+            if (eventTemplate == null) continue;
             
             string eventName = eventTemplate.EventName;
-            if (string.IsNullOrEmpty(eventName))
-            {
-                Debug.LogWarning($"Event has no name: {eventTemplate.name}");
-                continue;
-            }
-            
-            if (eventsByName.ContainsKey(eventName))
-            {
-                duplicateCount++;
-                Debug.LogWarning($"Duplicate event name '{eventName}' - will use the last one");
-            }
+            if (string.IsNullOrEmpty(eventName)) continue;
             
             eventsByName[eventName] = eventTemplate;
-            validCount++;
         }
         
-        LogDebug($"Event dictionary built: {validCount} valid, {nullCount} null, {duplicateCount} duplicates");
+        // Load from resources if no events were set in inspector
+        if (eventsByName.Count == 0)
+        {
+            LoadEventTypesFromResources();
+        }
+        
+        LogDebug($"Event dictionary built with {eventsByName.Count} events");
     }
     
-    #region Event Management
+    private void LoadEventTypesFromResources()
+    {
+        EventTypeSO[] loadedEvents = Resources.LoadAll<EventTypeSO>("ScriptableObjects/Events");
+        
+        if (loadedEvents != null && loadedEvents.Length > 0)
+        {
+            foreach (var eventType in loadedEvents)
+            {
+                if (!string.IsNullOrEmpty(eventType.EventName))
+                {
+                    eventsByName[eventType.EventName] = eventType;
+                }
+            }
+        }
+    }
     
+    public void LogDebug(string message)
+    {
+        if (debugMode)
+            Debug.Log($"<color=cyan>[EventManager]</color> {message}");
+    }
+    #endregion
+    
+    #region Event Lifecycle Methods
     // Start an event for a unit
     public void StartEvent(GameObject unit, EventTypeSO eventType)
     {
         if (unit == null || eventType == null) return;
         
-        // Create or update event state
-        EventState state = new EventState
-        {
-            currentEvent = eventType,
-            unit = unit,
-            isActive = true,
-            startTime = Time.time
-        };
+        // Create context with essential references
+        EventContext context = new EventContext();
         
-        activeEvents[unit] = state;
+        // Set the unit
+        context.SetData("Unit", unit);
+        
+        // Get the unit data component
+        UnitData unitData = unit.GetComponent<UnitData>();
+        if (unitData != null)
+        {
+            // Set room data
+            if (unitData.currentRoom != null)
+            {
+                context.SetData("Room", unitData.currentRoom);
+            }
+            
+            // Set floor data
+            if (unitData.currentFloor != null)
+            {
+                context.SetData("Floor", unitData.currentFloor);
+                
+                // Add floor-specific data
+                Floor floorComponent = unitData.currentFloor.GetComponent<Floor>();
+                if (floorComponent != null)
+                {
+                    context.SetData("FloorNumber", floorComponent.floorNumber);
+                    context.SetData("MemoriaRequired", floorComponent.memoriaRequired);
+                }
+            }
+        }
+        
+        // Track active event
+        activeEvents[unit] = eventType;
+        
+        LogDebug($"Starting event {eventType.EventName} for {unit.name}");
+        
+        // Debug the context contents
+        if (debugMode)
+        {
+            string roomName = unitData?.currentRoom != null ? unitData.currentRoom.name : "unknown";
+            string floorNumber = unitData?.currentFloor != null ? 
+                unitData.currentFloor.GetComponent<Floor>()?.floorNumber.ToString() ?? "unknown" : "unknown";
+                
+            LogDebug($"Context: Unit={unit.name}, Room={roomName}, Floor={floorNumber}");
+        }
         
         // Notify subscribers
         OnEventStarted?.Invoke(unit, eventType);
         
-        // Trigger the event's behavior
-        eventType.TriggerEvent(unit);
+        // Trigger event with context
+        eventType.TriggerEvent(unit, context);
     }
     
-    // Finish an event (called when an event completes)
+    // Finish an event 
     public void FinishEvent(GameObject unit, bool success = true)
     {
         if (unit == null || !activeEvents.ContainsKey(unit)) return;
         
-        EventState state = activeEvents[unit];
-        EventTypeSO eventType = state.currentEvent;
+        EventTypeSO eventType = activeEvents[unit];
         
-        // Mark as inactive
-        state.isActive = false;
+        LogDebug($"Finishing event {eventType.EventName} for {unit.name} with {(success ? "success" : "failure")}");
         
         // Notify subscribers
         OnEventFinished?.Invoke(unit, eventType, success);
@@ -155,123 +167,56 @@ public class EventManager : MonoBehaviour
         activeEvents.Remove(unit);
     }
     
-    // Transform an event into another type
-    public void TransformEvent(GameObject unit, EventTypeSO newEvent)
+    // Start a coroutine for behaviors that need it
+    public Coroutine StartBehaviorCoroutine(IEnumerator routine)
     {
-        if (unit == null || !activeEvents.ContainsKey(unit) || newEvent == null) return;
-        
-        EventState state = activeEvents[unit];
-        EventTypeSO oldEvent = state.currentEvent;
-        
-        // Update event in state
-        state.currentEvent = newEvent;
-        
-        // Notify subscribers
-        OnEventTransformed?.Invoke(unit, oldEvent, newEvent);
+        return StartCoroutine(routine);
     }
-    
-    // Trigger game over
-    public void TriggerGameOver(GameObject unit, bool victory)
-    {   
-        // Notify subscribers
-        OnGameOver?.Invoke(unit, victory);
-        
-        // Handle game end based on condition
-        if (victory)
-        {
-            Debug.Log("Victory! Game completed successfully.");
-            #if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-            #else
-            Application.Quit();
-            #endif
-        }
-        else
-        {
-            Debug.Log("Defeat! Game over.");
-            // Could implement restart logic here
-            #if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-            #else
-            Application.Quit();
-            #endif
-        }
-    }
-    
-    // Check if a unit is in an active event
-    public bool IsInActiveEvent(GameObject unit)
+
+    // Start a coroutine for behaviors that need it with behavior object and context
+    public Coroutine StartBehaviorCoroutine(GameObject unit, EventBehaviourSO behavior, EventContext context)
     {
-        return unit != null && activeEvents.ContainsKey(unit) && activeEvents[unit].isActive;
-    }
-    
-    // Get current event for a unit
-    public EventTypeSO GetCurrentEvent(GameObject unit)
-    {
-        if (unit != null && activeEvents.ContainsKey(unit))
+        if (behavior != null)
         {
-            return activeEvents[unit].currentEvent;
+            return StartCoroutine(behavior.ExecuteCoroutine(unit, context));
         }
         return null;
     }
-    
     #endregion
     
-    #region Battle Management
-    
-    // Start a battle between player and enemy
-    public void StartBattle(GameObject player, GameObject enemy)
+    #region Room Event Handling
+    // Handle room event when a unit enters a room
+    public void HandleRoomEvent(GameObject unit, EventTypeSO eventType, GameObject room)
     {
-        if (player == null || enemy == null) return;
+        if (unit == null) return;
         
-        // Create battle state
-        BattleState state = new BattleState
+        // Check if already in an event
+        if (IsInActiveEvent(unit))
         {
-            player = player,
-            enemy = enemy,
-            isActive = true,
-            startTime = Time.time
-        };
+            LogDebug($"{unit.name} is already in an active event - ignoring room event");
+            return;
+        }
         
-        activeBattles[player] = state;
+        EventTypeSO eventToTrigger = eventType;
         
-        // Notify subscribers
-        OnBattleStarted?.Invoke(player, enemy);
-        
-        // Actual battle logic would be handled by the battle system
-    }
-    
-    // End a battle
-    public void EndBattle(GameObject player, GameObject enemy, bool playerWon)
-    {
-        if (player == null || !activeBattles.ContainsKey(player)) return;
-        
-        // Mark as inactive
-        activeBattles[player].isActive = false;
-        
-        // Notify subscribers
-        OnBattleEnded?.Invoke(player, enemy, playerWon);
-        
-        // Remove from tracking
-        activeBattles.Remove(player);
-        
-        // If player lost, trigger game over
-        if (!playerWon)
+        // If no event provided, try to assign one
+        if (eventToTrigger == null)
         {
-            TriggerGameOver(player, false);
+            LogDebug($"No event provided for {room.name} - assigning random event");
+            eventToTrigger = AssignEventToRoom(room);
+        }
+        
+        if (eventToTrigger != null)
+        {
+            StartEvent(unit, eventToTrigger);
+        }
+        else
+        {
+            Debug.LogError($"Failed to find a valid event for room {room.name}");
         }
     }
     
-    // Check if a player is in an active battle
-    public bool IsInActiveBattle(GameObject player)
-    {
-        return player != null && activeBattles.ContainsKey(player) && activeBattles[player].isActive;
-    }
-    
-    #endregion
-    
-    #region Room Event Management
-    
-    // Assign an event to a room that doesn't have one yet
+    // Assign an event to a room
     public EventTypeSO AssignEventToRoom(GameObject room)
     {
         if (room == null) return null;
@@ -279,277 +224,185 @@ public class EventManager : MonoBehaviour
         RegularRoom roomScript = room.GetComponent<RegularRoom>();
         if (roomScript == null) return null;
         
-        // Pick a random event for this room
+        // Select a random event based on room position
         EventTypeSO selectedEvent = PickRandomEvent(roomScript.RoomCoordinate);
+        
+        // Assign to room for future reference
+        roomScript.RoomEventType = selectedEvent;
         
         return selectedEvent;
     }
     
-    // Event selection logic moved from RegularRoom
+    // Pick a random event (simplified for now)
     private EventTypeSO PickRandomEvent(string roomCoordinate)
     {
-        // Make sure events are loaded
-        if (eventTemplates.Count == 0)
-        {
-            LoadEventTypesIfNeeded();
-        }
-        
-        // Categories of events with weights - unchanged
-        Dictionary<string, int> categories = new Dictionary<string, int>()
-        {
-            { "quartz",   100000 },    
-            { "encounter", 45},     
-            { "good_omen", 30 },   
-            { "bad_omen", 15 }     
-        };
-        
-        // Room weights by category - unchanged
-        Dictionary<string, Dictionary<string, int>> roomWeights = new Dictionary<string, Dictionary<string, int>>()
-        {
-            { "quartz", new Dictionary<string, int> { { "Quartz", 100 } } },
-            { "encounter", new Dictionary<string, int> 
-                {
-                    { "Copper", 40 }, 
-                    { "Bronze", 30 }, 
-                    { "Silver", 20 }, 
-                    { "Iron", 10 }    
-                }
-            },
-            { "good_omen", new Dictionary<string, int>
-                {
-                    { "Emerald", 40 }, 
-                    { "Gold", 60 }     
-                }
-            },
-            { "bad_omen", new Dictionary<string, int>
-                {
-                    { "Rhinestone",80 }, 
-                    { "Amethyst", 20 }   
-                }
-            }
-        };
-        
-        // The logic for selecting category and room type remains unchanged
-        
-        // Step 1: Select category - unchanged
-        int totalCategoryWeight = 0;
-        foreach (int weight in categories.Values)
-        {
-            totalCategoryWeight += weight;
-        }
-        
-        int categoryRoll = UnityEngine.Random.Range(0, totalCategoryWeight);
-        int currentWeight = 0;
-        string selectedCategory = "";
-        
-        foreach (KeyValuePair<string, int> category in categories)
-        {
-            currentWeight += category.Value;
-            if (categoryRoll < currentWeight)
-            {
-                selectedCategory = category.Key;
-                break;
-            }
-        }
-        
-        // Step 2: Select room type from category - unchanged
-        Dictionary<string, int> weights = roomWeights[selectedCategory];
-        int totalRoomWeight = 0;
-        foreach (int weight in weights.Values)
-        {
-            totalRoomWeight += weight;
-        }
-        
-        int roomRoll = UnityEngine.Random.Range(0, totalRoomWeight);
-        currentWeight = 0;
-        string selectedRoom = "";
-        
-        foreach (KeyValuePair<string, int> room in weights)
-        {
-            currentWeight += room.Value;
-            if (roomRoll < currentWeight)
-            {
-                selectedRoom = room.Key;
-                break;
-            }
-        }
-        
-        // Return the selected event type - CHANGED to use the new system
-        return InstantiateEvent(selectedRoom);
+        // Simplified event selection - for now just using Quartz
+        return InstantiateEvent("Quartz");
     }
     
-    // NEW: Create an instance of an event based on its name
+    // Create an instance of an event
     private EventTypeSO InstantiateEvent(string eventName)
     {
-        LogDebug($"Instantiating event: '{eventName}'");
+        if (string.IsNullOrEmpty(eventName)) return GetDefaultEvent();
         
-        if (string.IsNullOrEmpty(eventName))
-        {
-            Debug.LogError("Attempted to instantiate an event with null/empty name");
-            return GetDefaultEvent();
-        }
-        
-        if (eventsByName.Count == 0)
-        {
-            LoadEventTypesIfNeeded();
-            BuildEventDictionary();
-        }
-        
-        EventTypeSO template = null;
-        foreach (var entry in eventsByName)
-        {
-            if (entry.Key.Equals(eventName, StringComparison.OrdinalIgnoreCase))
-            {
-                template = entry.Value;
-                break;
-            }
-        }
-        
-        if (template != null)
+        // Try to find the event template
+        if (eventsByName.TryGetValue(eventName, out EventTypeSO template))
         {
             EventTypeSO instance = Instantiate(template);
             instance.name = eventName;
-            LogDebug($"Created event instance: '{eventName}'");
             return instance;
         }
         
-        LogDebug($"Event '{eventName}' not found. Available events:");
-        foreach (var key in eventsByName.Keys)
-        {
-            LogDebug($"- {key}");
-        }
-        
-        Debug.LogWarning($"No event template found for '{eventName}', using default");
+        // Fallback to default
         return GetDefaultEvent();
     }
     
+    // Get default event when none is specified
     private EventTypeSO GetDefaultEvent()
     {
+        // Try to get Quartz event
         if (eventsByName.TryGetValue("Quartz", out EventTypeSO defaultEvent))
         {
-            EventTypeSO instance = Instantiate(defaultEvent);
-            instance.name = "Default (Quartz)";
-            return instance;
+            return Instantiate(defaultEvent);
         }
         
-        if (eventsByName.Count > 0)
+        // Fallback to first available event
+        foreach (var entry in eventsByName)
         {
-            var firstEvent = eventsByName.Values.GetEnumerator();
-            firstEvent.MoveNext();
-            
-            EventTypeSO instance = Instantiate(firstEvent.Current);
-            instance.name = "Emergency Default";
-            return instance;
+            return Instantiate(entry.Value);
         }
         
         Debug.LogError("No events available at all!");
         return null;
     }
-    
-    // Load event types from resources if not set in the inspector
-    private void LoadEventTypesIfNeeded()
-    {
-        LogDebug($"Loading events. Current templates: {eventTemplates.Count}");
-        
-        if (eventTemplates.Count == 0)
-        {
-            EventTypeSO[] loadedEvents = Resources.LoadAll<EventTypeSO>("ScriptableObjects/Events");
-            
-            LogDebug($"Found {loadedEvents?.Length ?? 0} events in Resources folder");
-            
-            if (loadedEvents != null && loadedEvents.Length > 0)
-            {
-                eventTemplates.AddRange(loadedEvents);
-                BuildEventDictionary();
-                
-                foreach (var entry in eventsByName)
-                {
-                    LogDebug($"Available event: '{entry.Key}' ({entry.Value.name})");
-                }
-            }
-            else
-            {
-                Debug.LogError("Failed to load event templates from Resources");
-            }
-        }
-    }
-    
     #endregion
     
-    #region Behaviour Support Methods
-    
-    // NEW: Helper methods for common behavior operations
-    
-    // Set player state for behaviors that need it
-    public void SetPlayerEventState(GameObject unit, bool inEvent, string subState = "CHOOSING")
+    #region Context Management
+    // Populate event context with essential data
+    private void PopulateEventContext(EventContext context, GameObject unit)
     {
-        if (unit == null) return;
+        // Set the unit
+        context.SetData("Unit", unit);
         
-        if (unit.TryGetComponent(out GameplaySystems systems))
+        // Get and set the current room
+        if (unit.TryGetComponent<UnitData>(out var unitData) && unitData.currentRoom != null)
         {
-            // Set the event state which will also stop movement
-            systems.SetMainState(inEvent ? 
-                GameplaySystems.PlayerMainState.IN_EVENT : 
-                GameplaySystems.PlayerMainState.IDLE);
-                
-            // Set sub-state if in event
-            if (inEvent)
-            {
-                switch (subState.ToUpper())
-                {
-                    case "CHOOSING":
-                        systems.SetEventState(GameplaySystems.PlayerEventSubState.CHOOSING);
-                        break;
-                    case "RECEIVING":
-                        // Change to an existing enum value or add RECEIVING to GameplaySystems.PlayerEventSubState
-                        systems.SetEventState(GameplaySystems.PlayerEventSubState.IDLE);
-                        break;
-                    default:
-                        systems.SetEventState(GameplaySystems.PlayerEventSubState.IDLE);
-                        break;
-                }
-            }
+            GameObject room = unitData.currentRoom;
+            context.SetData("Room", room);
             
-            // Also stop player controller directly as a safety measure
-            if (unit.TryGetComponent(out MovementModule playerController))
+            // Get and set the floor 
+            GameObject floor = unitData.currentFloor;
+            if (floor != null)
             {
-                if (inEvent)
-                    playerController.StopMovement();
-                else
-                    playerController.ResumeMovement();
+                context.SetData("Floor", floor);
+                
+                // Set floor-specific data
+                if (floor.TryGetComponent<Floor>(out var floorComponent))
+                {
+                    context.SetData("FloorNumber", floorComponent.floorNumber);
+                    context.SetData("MemoriaRequired", floorComponent.memoriaRequired);
+                }
             }
         }
     }
     
-    // Display message in a standardized format for behaviors
-    public void DisplayMessage(string message, string color = "white")
+    // Get component from unit and store in context if not already present
+    public T GetOrStoreComponent<T>(GameObject unit, EventContext context, string key) where T : Component
     {
-        Debug.Log($"<color={color}>{message}</color>");
+        // Try to get from context first
+        T component = context.GetData<T>(key);
+        
+        // If not in context, get from unit and store in context
+        if (component == null && unit != null)
+        {
+            component = unit.GetComponent<T>();
+            if (component != null)
+            {
+                context.SetData(key, component);
+            }
+        }
+        
+        return component;
     }
     
+    // Get current state data from unit's systems
+    public void GetOrStoreCurrentState<T>(GameplaySystems systems, EventContext context, string key, System.Func<T> getter)
+    {
+        if (!context.HasData(key) && systems != null && getter != null)
+        {
+            T state = getter();
+            context.SetData(key, state);
+        }
+    }
     #endregion
     
     #region Utility Methods
-    
-    // Helper method for room event handling
-    public void HandleRoomEvent(GameObject unit, EventTypeSO eventType, GameObject room)
+    // Check if unit is in an active event
+    public bool IsInActiveEvent(GameObject unit)
     {
-        if (unit == null || eventType == null) return;
-        StartEvent(unit, eventType);
+        return unit != null && activeEvents.ContainsKey(unit);
     }
     
-    // Method to check memoria requirements and handle progression
-    public bool CheckMemoriaRequirement(GameObject unit, int requiredMemoria)
+    // Get current event for a unit
+    public EventTypeSO GetCurrentEvent(GameObject unit)
     {
-        if (unit == null) return false;
-        
-        UnitData unitData = unit.GetComponent<UnitData>();
-        if (unitData == null) return false;
-        
-        bool hasEnoughMemoria = unitData.unitTotalMemoria >= requiredMemoria;
-        
-        return hasEnoughMemoria;
+        if (unit != null && activeEvents.TryGetValue(unit, out EventTypeSO currentEvent))
+        {
+            return currentEvent;
+        }
+        return null;
     }
     
+    // Get floor from room
+    public GameObject GetFloorForRoom(GameObject room)
+    {
+        if (room == null) return null;
+        Transform parent = room.transform.parent;
+        return parent != null ? parent.gameObject : null;
+    }
     #endregion
+}
+
+// Simple context class for events
+public class EventContext
+{
+    // Dictionary to store any type of data
+    private Dictionary<string, object> contextData = new Dictionary<string, object>();
+
+    // Set data with a key
+    public void SetData<T>(string key, T value)
+    {
+        contextData[key] = value;
+    }
+
+    // Get data by key with type casting
+    public T GetData<T>(string key, T defaultValue = default)
+    {
+        if (HasData(key) && contextData[key] is T value)
+        {
+            return value;
+        }
+        return defaultValue;
+    }
+
+    // Check if key exists
+    public bool HasData(string key)
+    {
+        return contextData.ContainsKey(key);
+    }
+
+    // Remove data by key
+    public void RemoveData(string key)
+    {
+        if (HasData(key))
+        {
+            contextData.Remove(key);
+        }
+    }
+
+    // Clear all data
+    public void Clear()
+    {
+        contextData.Clear();
+    }
 }

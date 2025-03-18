@@ -1,4 +1,4 @@
-using UnityEngine;
+/*using UnityEngine;
 
 [CreateAssetMenu(fileName = "New Emerald Event", menuName = "Twilight's Messiah/Events/GoodOmen/Emerald")]
 public class EmeraldEventSO : EventTypeSO
@@ -62,3 +62,4 @@ public class EmeraldEventSO : EventTypeSO
         }
     }
 }
+*/

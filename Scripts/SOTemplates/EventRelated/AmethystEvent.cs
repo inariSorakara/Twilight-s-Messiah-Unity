@@ -1,4 +1,4 @@
-using UnityEngine;
+/*using UnityEngine;
 
 [CreateAssetMenu(fileName = "New Amethyst Event", menuName = "Twilight's Messiah/Events/BadOmen/Amethyst")]
 public class AmethystEventSO : EventTypeSO
@@ -130,3 +130,4 @@ public class AmethystEventSO : EventTypeSO
         }
     }
 }
+*/

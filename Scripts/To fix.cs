@@ -1,18 +1,22 @@
 /*# Quartz Event Debugging Guide (Improved)
+Updated order of behaviours:
+1|To In event_Idle //Change player to in event state
+2|Memoriameter check // Test if the player has enough memoria to proceed
+    2.a|If true:
+                MessageDisplayBehaviour //Passed memoria checked
+                PlayerStateManipulatorComponent //To In event_Choosing
+                PlayerchoiceBehaviour //Move to next floor choice
+                2.a.1|If true:
+                            MessageDisplayBehaviour //Moving to next floor dialogue
+                            PlayerStateManipulatorComponent //To idle
+                2.a.2|If false:
+                            MessageDisplayBehaviour //Staying on this floor dialogue
+                            PlayerStateManipulatorComponent //To idle
+    2.b|If false:
+                MessageDisplayBehaviour //FailedMemoria check dialogue
+                PlayerStateManipulatorComponent //To idle
 
-Order of behaviours:
-1|To In event_Idle //Change player to in event state [Done]
-2|Memoriameter check // Test if the player has enough memoria to proceed [Done]
-<Modify the message displayer component to be able to display conditional messages.
-    Currently the conditional display settings are component wide,
-    The idea is to make it so that each message can have its own condition.>
-3|FailedMemoria check dialogue//If the player does not have enough memoria, display this dialogue
-4|To idle//Change player to idle state
-5|Passed memoria checked//If the player has enough memoria, display this dialogue
-6|To In event_Choosing//Change player to the choosing substate
-7|Move to next floor choice//Display the choice to move to the next floor
-8|Moving to next floor dialogue// If the player chooses to move to the next floor, display this dialogue
-9|To idle//Change player to idle state
-10|Staying on this floor dialogue //If the player chooses to stay on the current floor, display this dialogue
-11|To idle//Change player to idle state
-*/
+
+Let's understand together how the components on quartz event work.
+
+    */

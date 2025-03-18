@@ -1,4 +1,4 @@
-using System.Collections;
+/*using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -116,4 +116,4 @@ public class IronEventSO : EventTypeSO
         lastSelectedEnemy = null;
         lastSelectedIndex = -1;
     }
-}
+}*/

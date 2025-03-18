@@ -150,24 +150,25 @@ public class RegularRoom : MonoBehaviour //Defines the class
         // Check if the object that entered is a Unit
         if (other.CompareTag("PlayersAlive"))
         {
-            GameObject Unit = other.gameObject;
+            GameObject unit = other.gameObject;
             
             // Add Unit to this room's list if not already there
-            if (!unitsInRoom.Contains(Unit))
+            if (!unitsInRoom.Contains(unit))
             {
-                unitsInRoom.Add(Unit);
-                Debug.Log($"{Unit.name} entered room {gameObject.name}");
+                unitsInRoom.Add(unit);
+                Debug.Log($"{unit.name} entered room {gameObject.name}");
             }
             
-            // Update Unit's current room reference
-            UnitData UnitData = Unit.GetComponent<UnitData>();
-            if (UnitData != null)
+            // Update Unit's current room and floor references
+            UnitData unitData = unit.GetComponent<UnitData>();
+            if (unitData != null)
             {
-                UnitData.currentRoom = gameObject;
+                unitData.currentRoom = gameObject;
+                unitData.currentFloor = parentFloor;
             }
             else
             {
-                Debug.LogError("PlayerData component not found on Unit.");
+                Debug.LogError("UnitData component not found on Unit.");
             }
             
             // Add Unit to floor's Units inside list
@@ -176,9 +177,9 @@ public class RegularRoom : MonoBehaviour //Defines the class
                 Floor floorComponent = parentFloor.GetComponent<Floor>();
                 if (floorComponent != null)
                 {
-                    if (!floorComponent.unitsInside.Contains(Unit))
+                    if (!floorComponent.unitsInside.Contains(unit))
                     {
-                        floorComponent.unitsInside.Add(Unit);
+                        floorComponent.unitsInside.Add(unit);
                     }
                 }
                 else
@@ -188,7 +189,7 @@ public class RegularRoom : MonoBehaviour //Defines the class
             }
             
             // Start coroutine for any delayed actions
-            StartCoroutine(PlayerEnteredRoom(Unit));
+            StartCoroutine(PlayerEnteredRoom(unit));
         }
     }
 

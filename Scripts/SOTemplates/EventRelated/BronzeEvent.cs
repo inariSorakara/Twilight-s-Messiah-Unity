@@ -1,4 +1,4 @@
-using System.Collections;
+/*using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -139,4 +139,4 @@ public class BronzeEventSO : EventTypeSO
 }
 
 // Remove the EnemyReference class since it's no longer used in this approach
-// The class is already defined in another file or can be defined separately if needed
+// The class is already defined in another file or can be defined separately if needed*/

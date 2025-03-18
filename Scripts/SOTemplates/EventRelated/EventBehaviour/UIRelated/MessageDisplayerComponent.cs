@@ -1,4 +1,4 @@
-using UnityEngine;
+/*using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -14,6 +14,28 @@ public class MessageDisplayBehaviour : EventBehaviourSO
         public string color = "white";
         public float displayDuration = 2.0f;
     }
+    
+    [System.Serializable]
+    public class DynamicTextReplacement
+    {
+        public string token;
+        public string defaultValue = "";
+        
+        [Header("Component Reference")]
+        [Tooltip("Optional component to get value from")]
+        public Component targetComponent;
+        
+        [Header("Component Lookup")]
+        [Tooltip("Type name of component to find (e.g. 'UnitData', 'Floor')")]
+        public string componentTypeName;
+        
+        [Tooltip("Object path to navigate (e.g. 'currentRoom.transform.parent')")]
+        public string objectPath;
+        
+        [Header("Value Access")]
+        [Tooltip("Component field or property name to access")]
+        public string fieldName;
+    }
 
     [Header("Messages")]
     [SerializeField] private List<Message> messages = new List<Message>();
@@ -23,56 +45,30 @@ public class MessageDisplayBehaviour : EventBehaviourSO
     [SerializeField] private string borderColor = "gray";
     [SerializeField] private bool waitBetweenMessages = true;
     
-    [Header("Conditional Display")]
-    [SerializeField] private bool useCondition = false;
-    [SerializeField] private string conditionKey = "";
-    [SerializeField] private bool expectedConditionValue = true;
-    [SerializeField] private bool useStringComparison = false;
-    [SerializeField] private string expectedStringValue = "";
-
     [Header("Dynamic Text")]
     [SerializeField] private bool enableDynamicText = true;
-    [Tooltip("Format: {key} will be replaced with context value")]
-    [SerializeField] private List<string> dynamicTextKeys = new List<string>();
+    [SerializeField] private List<DynamicTextReplacement> dynamicReplacements = new List<DynamicTextReplacement>();
+    [SerializeField] private GameObject dataSourceObject; // For getting data at runtime
 
-    public override bool Execute(GameObject unit, EventContext context)
+    public override bool Execute(GameObject unit)
     {
-        // Check condition if enabled
-        if (useCondition && context.HasData(conditionKey))
+        // Cache data source object if not set
+        if (dataSourceObject == null)
         {
-            if (useStringComparison)
-            {
-                string conditionValue = context.GetData<string>(conditionKey, "");
-                if (conditionValue != expectedStringValue)
-                {
-                    // Skip this message if string condition doesn't match
-                    Debug.Log($"Message display skipped: string condition '{conditionKey}' value '{conditionValue}' does not match expected '{expectedStringValue}'");
-                    return true;
-                }
-            }
-            else
-            {
-                bool conditionValue = context.GetData<bool>(conditionKey, false);
-                if (conditionValue != expectedConditionValue)
-                {
-                    // Skip this message if boolean condition doesn't match
-                    Debug.Log($"Message display skipped: boolean condition '{conditionKey}' not met");
-                    return true;
-                }
-            }
+            dataSourceObject = unit;
         }
 
         // For non-blocking display, just show and continue
         if (!IsBlocking)
         {
-            DisplayAllMessages(unit, context);
+            DisplayAllMessages(unit);
             return true;
         }
         
         // For blocking display, start coroutine and wait
         if (EventManager.Instance != null)
         {
-            EventManager.Instance.StartCoroutine(DisplayMessagesCoroutine(unit, context));
+            EventManager.Instance.StartCoroutine(DisplayMessagesCoroutine(unit));
             return true;
         }
         
@@ -80,17 +76,17 @@ public class MessageDisplayBehaviour : EventBehaviourSO
         return false;
     }
 
-    public override IEnumerator ExecuteCoroutine(GameObject unit, EventContext context)
+    public override IEnumerator ExecuteCoroutine(GameObject unit)
     {
-        yield return DisplayMessagesCoroutine(unit, context);
+        yield return DisplayMessagesCoroutine(unit);
     }
 
-    private IEnumerator DisplayMessagesCoroutine(GameObject unit, EventContext context)
+    private IEnumerator DisplayMessagesCoroutine(GameObject unit)
     {
         foreach (Message message in messages)
         {
             // Display the message
-            string processedText = ProcessDynamicText(message.text, context);
+            string processedText = ProcessDynamicText(message.text, unit);
             DisplayMessage(processedText, message.color);
             
             if (waitBetweenMessages && message.displayDuration > 0)
@@ -100,11 +96,11 @@ public class MessageDisplayBehaviour : EventBehaviourSO
         }
     }
 
-    private void DisplayAllMessages(GameObject unit, EventContext context)
+    private void DisplayAllMessages(GameObject unit)
     {
         foreach (Message message in messages)
         {
-            string processedText = ProcessDynamicText(message.text, context);
+            string processedText = ProcessDynamicText(message.text, unit);
             DisplayMessage(processedText, message.color);
         }
     }
@@ -124,28 +120,26 @@ public class MessageDisplayBehaviour : EventBehaviourSO
         }
     }
 
-    private string ProcessDynamicText(string text, EventContext context)
+    private string ProcessDynamicText(string text, GameObject unit)
     {
         if (!enableDynamicText)
             return text;
         
         string processedText = text;
         
-        // Replace dynamic tokens with context values
-        foreach (string key in dynamicTextKeys)
+        // Replace dynamic tokens with values from components
+        foreach (var replacement in dynamicReplacements)
         {
-            if (context.HasData(key))
-            {
-                string tokenPattern = $"{{{key}}}";
-                string replacement = context.GetData<object>(key)?.ToString() ?? "[null]";
-                processedText = processedText.Replace(tokenPattern, replacement);
-            }
+            string tokenPattern = $"{{{replacement.token}}}";
+            string value = GetDynamicValue(replacement, unit);
+            processedText = processedText.Replace(tokenPattern, value);
         }
         
-        // Also check for special tokens
-        processedText = processedText.Replace("{PLAYER}", "Player");
+        // Use unit name instead of PLAYER
+        string playerName = unit != null ? unit.name : "Player";
+        processedText = processedText.Replace("{PLAYER}", playerName);
         
-        // Check for tokens that weren't replaced
+        // Warn about tokens that weren't replaced
         if (enableDynamicText)
         {
             Regex regex = new Regex(@"\{([^{}]+)\}");
@@ -154,13 +148,134 @@ public class MessageDisplayBehaviour : EventBehaviourSO
             foreach (Match match in matches)
             {
                 string token = match.Groups[1].Value;
-                if (!dynamicTextKeys.Contains(token) && token != "PLAYER")
+                bool foundInReplacements = false;
+                
+                foreach (var replacement in dynamicReplacements)
                 {
-                    Debug.LogWarning($"Token '{token}' in message not found in context");
+                    if (replacement.token == token)
+                    {
+                        foundInReplacements = true;
+                        break;
+                    }
+                }
+                
+                if (!foundInReplacements && token != "PLAYER")
+                {
+                    Debug.LogWarning($"Token '{token}' in message has no defined replacement");
                 }
             }
         }
         
         return processedText;
     }
+    
+    private string GetDynamicValue(DynamicTextReplacement replacement, GameObject unit)
+    {
+        // Use the explicitly provided component if available
+        Component component = replacement.targetComponent;
+        object targetObject = component;
+        
+        // Try to find component by type if no explicit reference
+        if (component == null && !string.IsNullOrEmpty(replacement.componentTypeName))
+        {
+            GameObject sourceObj = dataSourceObject != null ? dataSourceObject : unit;
+            if (sourceObj != null)
+            {
+                // Find component by type name
+                foreach (Component comp in sourceObj.GetComponents<Component>())
+                {
+                    if (comp.GetType().Name == replacement.componentTypeName)
+                    {
+                        component = comp;
+                        targetObject = comp;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Fall back to first MonoBehaviour if still null
+        if (component == null)
+        {
+            GameObject sourceObj = dataSourceObject != null ? dataSourceObject : unit;
+            if (sourceObj != null)
+            {
+                component = sourceObj.GetComponent<MonoBehaviour>();
+                targetObject = component;
+            }
+        }
+        
+        if (targetObject == null)
+            return replacement.defaultValue;
+        
+        // Navigate object path if specified
+        if (!string.IsNullOrEmpty(replacement.objectPath))
+        {
+            string[] pathParts = replacement.objectPath.Split('.');
+            System.Type currentType = targetObject.GetType();
+            
+            foreach (string part in pathParts)
+            {
+                // Try property
+                var property = currentType.GetProperty(part);
+                if (property != null)
+                {
+                    targetObject = property.GetValue(targetObject);
+                }
+                else
+                {
+                    // Try field
+                    var field = currentType.GetField(part);
+                    if (field != null)
+                    {
+                        targetObject = field.GetValue(targetObject);
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"Failed to navigate path part '{part}' in '{replacement.objectPath}'");
+                        return replacement.defaultValue;
+                    }
+                }
+                
+                if (targetObject == null)
+                    return replacement.defaultValue;
+                    
+                currentType = targetObject.GetType();
+            }
+        }
+        
+        // Get the final field value
+        if (string.IsNullOrEmpty(replacement.fieldName))
+            return targetObject?.ToString() ?? replacement.defaultValue;
+            
+        try
+        {
+            System.Type type = targetObject.GetType();
+            
+            // Try property
+            System.Reflection.PropertyInfo property = type.GetProperty(replacement.fieldName);
+            if (property != null)
+            {
+                object value = property.GetValue(targetObject);
+                return value?.ToString() ?? replacement.defaultValue;
+            }
+            
+            // Try field
+            System.Reflection.FieldInfo field = type.GetField(replacement.fieldName);
+            if (field != null)
+            {
+                object value = field.GetValue(targetObject);
+                return value?.ToString() ?? replacement.defaultValue;
+            }
+            
+            Debug.LogWarning($"Field/property '{replacement.fieldName}' not found on {type.Name}");
+            return replacement.defaultValue;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Error getting dynamic value: {e.Message}");
+            return replacement.defaultValue;
+        }
+    }
 }
+*/

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+/*using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "New Rhinestone Event", menuName = "Twilight's Messiah/Events/BadOmen/Rhinestone")]
@@ -296,3 +296,4 @@ public class RhinestoneInputHandler : MonoBehaviour
         RhinestoneEventSO.ProcessChoice(-1);
     }
 }
+*/

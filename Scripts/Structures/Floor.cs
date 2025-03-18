@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Reflection;
 
 public class Floor : MonoBehaviour
 {
@@ -34,5 +35,26 @@ public class Floor : MonoBehaviour
     public int GetRequiredMemoria()
     {
         return memoriaRequired;
+    }
+    
+    // Generic property getter that can be used by a text replacement system
+    public object GetPropertyValue(string propertyName)
+    {
+        // Try to get a public field with the given name
+        FieldInfo field = this.GetType().GetField(propertyName);
+        if (field != null)
+        {
+            return field.GetValue(this);
+        }
+        
+        // Try to get a property with the given name
+        PropertyInfo property = this.GetType().GetProperty(propertyName);
+        if (property != null)
+        {
+            return property.GetValue(this);
+        }
+        
+        // If nothing found, return null
+        return null;
     }
 }

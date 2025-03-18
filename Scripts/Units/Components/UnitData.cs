@@ -5,6 +5,7 @@ public class UnitData : MonoBehaviour
 {
     [Header("Location Data")]
     public GameObject currentRoom; // Reference to the current room the unit is in.
+    public GameObject currentFloor; // Reference to the current floor the unit is on.
 
     [Header("Unit Information")]
     public string unitName; // Name of the unit
