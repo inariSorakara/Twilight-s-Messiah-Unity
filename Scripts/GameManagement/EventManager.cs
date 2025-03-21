@@ -7,7 +7,25 @@ public class EventManager : MonoBehaviour
 {
     #region Core Properties
     // Singleton instance
-    public static EventManager Instance { get; private set; }
+    private static readonly object lockObject = new object();
+    private static EventManager instance;
+    public static EventManager Instance
+    {
+        get
+        {
+            lock (lockObject)
+            {
+                return instance;
+            }
+        }
+        private set
+        {
+            lock (lockObject)
+            {
+                instance = value;
+            }
+        }
+    }
     
     [Header("Event Registry")]
     [SerializeField] private List<EventTypeSO> eventTemplates = new List<EventTypeSO>();
@@ -26,6 +44,10 @@ public class EventManager : MonoBehaviour
     
     [Header("Debug Settings")]
     public bool debugMode = false;
+
+    // Unit ID tracking for simpler context keys
+    private Dictionary<GameObject, int> unitIdMapping = new Dictionary<GameObject, int>();
+    private int nextUnitId = 1;
     #endregion
     
     #region Initialization
@@ -56,6 +78,11 @@ public class EventManager : MonoBehaviour
             
             string eventName = eventTemplate.EventName;
             if (string.IsNullOrEmpty(eventName)) continue;
+            
+            if (eventsByName.ContainsKey(eventName))
+            {
+                Debug.LogWarning($"Duplicate event name detected: {eventName}. Overwriting the previous entry.");
+            }
             
             eventsByName[eventName] = eventTemplate;
         }
@@ -93,16 +120,50 @@ public class EventManager : MonoBehaviour
     #endregion
     
     #region Event Lifecycle Methods
+    // Helper method to generate unit-specific context keys with simpler IDs
+    public string GetUnitContextKey(GameObject unit, string baseKey)
+    {
+        if (unit == null) return baseKey;
+        
+        // Get or assign a simple unit ID
+        int unitId;
+        if (!unitIdMapping.TryGetValue(unit, out unitId))
+        {
+            unitId = nextUnitId++;
+            unitIdMapping[unit] = unitId;
+        }
+        
+        // Format: UnitX_BaseKey where X is a simple sequential number
+        return $"Unit{unitId}_{baseKey}";
+    }
+    
     // Start an event for a unit
     public void StartEvent(GameObject unit, EventTypeSO eventType)
     {
         if (unit == null || eventType == null) return;
+
+        // Check if the unit is already in an active event
+        if (IsInActiveEvent(unit))
+        {
+            LogDebug($"{unit.name} is already in an active event - cannot start a new one.");
+            return;
+        }
         
-        // Create context with essential references
-        EventContext context = new EventContext();
+        // Get or create event context and register unit with it
+        Dictionary<string, object> context = EventContextManager.RegisterUnitWithEvent(unit, eventType);
         
-        // Set the unit
-        context.SetData("Unit", unit);
+        // Track active event
+        activeEvents[unit] = eventType;
+        
+        // Set the unit in the context with unit-specific keys
+        string unitObjectKey = GetUnitContextKey(unit, "Object");
+        string unitNameKey = GetUnitContextKey(unit, "Name");
+        
+        context[unitObjectKey] = unit;
+        context[unitNameKey] = unit.name;
+        
+        // For backward compatibility during transition
+        context["Unit"] = unit;
         
         // Get the unit data component
         UnitData unitData = unit.GetComponent<UnitData>();
@@ -111,37 +172,81 @@ public class EventManager : MonoBehaviour
             // Set room data
             if (unitData.currentRoom != null)
             {
-                context.SetData("Room", unitData.currentRoom);
+                GameObject room = unitData.currentRoom;
+                context["Room"] = room;
+                
+                // Add room coordinate/name
+                RegularRoom roomScript = room.GetComponent<RegularRoom>();
+                if (roomScript != null)
+                {
+                    context["RoomCoordinate"] = roomScript.RoomCoordinate;
+                }
             }
             
             // Set floor data
             if (unitData.currentFloor != null)
             {
-                context.SetData("Floor", unitData.currentFloor);
+                GameObject floor = unitData.currentFloor;
+                context["Floor"] = floor;
+                context["FloorName"] = floor.name;
                 
                 // Add floor-specific data
-                Floor floorComponent = unitData.currentFloor.GetComponent<Floor>();
+                Floor floorComponent = floor.GetComponent<Floor>();
                 if (floorComponent != null)
                 {
-                    context.SetData("FloorNumber", floorComponent.floorNumber);
-                    context.SetData("MemoriaRequired", floorComponent.memoriaRequired);
+                    context["FloorNumber"] = floorComponent.floorNumber;
+                    context["MemoriaRequired"] = floorComponent.memoriaRequired;
                 }
+            }
+            
+            // Add unit's memoria info with unit-specific key
+            string totalMemoriaKey = GetUnitContextKey(unit, "TotalMemoria");
+            if (!context.ContainsKey(totalMemoriaKey))
+            {
+                context[totalMemoriaKey] = unitData.unitTotalMemoria;
             }
         }
         
-        // Track active event
-        activeEvents[unit] = eventType;
+        // Event-specific context data
+        RegisterEventSpecificContext(unit, eventType, context);
         
         LogDebug($"Starting event {eventType.EventName} for {unit.name}");
         
-        // Debug the context contents
+        // Debug the context AFTER all context data has been registered
         if (debugMode)
         {
-            string roomName = unitData?.currentRoom != null ? unitData.currentRoom.name : "unknown";
-            string floorNumber = unitData?.currentFloor != null ? 
-                unitData.currentFloor.GetComponent<Floor>()?.floorNumber.ToString() ?? "unknown" : "unknown";
+            string roomName = "unknown";
+            if (unitData?.currentRoom != null)
+            {
+                roomName = unitData.currentRoom.name;
+            }
+
+            string floorNumber = "unknown";
+            if (unitData?.currentFloor != null)
+            {
+                var floorComponent = unitData.currentFloor.GetComponent<Floor>();
+                if (floorComponent != null)
+                {
+                    floorNumber = floorComponent.floorNumber.ToString();
+                }
+            }
+            
+            // Include memoria info in the debug output
+            string totalMemoria = "unknown";
+            string requiredMemoria = "unknown";
+            
+            string totalMemoriaKey = GetUnitContextKey(unit, "TotalMemoria");
+            if (context.ContainsKey(totalMemoriaKey))
+            {
+                totalMemoria = context[totalMemoriaKey].ToString();
+            }
+            
+            if (context.ContainsKey("MemoriaRequired"))
+            {
+                requiredMemoria = context["MemoriaRequired"].ToString();
+            }
                 
-            LogDebug($"Context: Unit={unit.name}, Room={roomName}, Floor={floorNumber}");
+            LogDebug($"Context: Unit={unit.name}, Room={roomName}, Floor={floorNumber}, TotalMemoria={totalMemoria}, RequiredMemoria={requiredMemoria}");
         }
         
         // Notify subscribers
@@ -149,6 +254,50 @@ public class EventManager : MonoBehaviour
         
         // Trigger event with context
         eventType.TriggerEvent(unit, context);
+    }
+    
+    // Register additional context data specific to event types
+    private void RegisterEventSpecificContext(GameObject unit, EventTypeSO eventType, Dictionary<string, object> context)
+    {
+        // Handle based on event type
+        switch (eventType.EventName)
+        {
+            case "Quartz":
+                // Register the unit's total memoria if not already present
+                string totalMemoriaKey = GetUnitContextKey(unit, "TotalMemoria");
+                if (!context.ContainsKey(totalMemoriaKey))
+                {
+                    UnitData unitData = unit.GetComponent<UnitData>();
+                    if (unitData != null)
+                    {
+                        context[totalMemoriaKey] = unitData.unitTotalMemoria;
+                    }
+                }
+                
+                // Register the floor's memoria requirement if not already present
+                if (!context.ContainsKey("MemoriaRequired"))
+                {
+                    UnitData unitData = unit.GetComponent<UnitData>();
+                    if (unitData != null && unitData.currentFloor != null)
+                    {
+                        Floor floorComponent = unitData.currentFloor.GetComponent<Floor>();
+                        if (floorComponent != null)
+                        {
+                            context["MemoriaRequired"] = floorComponent.memoriaRequired;
+                        }
+                    }
+                }
+                break;
+                
+            // Add cases for future event types
+            // case "SomeOtherEvent":
+            //     RegisterSomeOtherEventContext(unit, context);
+            //     break;
+                
+            default:
+                // Default case for all other events
+                break;
+        }
     }
     
     // Finish an event 
@@ -163,9 +312,63 @@ public class EventManager : MonoBehaviour
         // Notify subscribers
         OnEventFinished?.Invoke(unit, eventType, success);
         
+        // Clear any existing context data related to this event
+        ClearEventContext(unit, eventType);
+        
         // Remove from tracking
         activeEvents.Remove(unit);
-    }
+    }    
+    
+    // Clear context data when an event finishes
+    private void ClearEventContext(GameObject unit, EventTypeSO eventType)
+    {
+        // Log debugging information
+        if (debugMode)
+        {
+            LogDebug($"Clearing context data for event {eventType.EventName} on {unit.name}");
+            
+            // Get the context and display all entries
+            Dictionary<string, object> context = EventContextManager.GetContextForUnit(unit);
+            if (context != null && context.Count > 0)
+            {
+                LogDebug("Context contents:");
+                foreach (var pair in context)
+                {
+                    string valueStr = pair.Value != null ? pair.Value.ToString() : "null";
+                    LogDebug($"  {pair.Key} = {valueStr}");
+                }
+            }
+            else
+            {
+                LogDebug("Context is empty");
+            }
+        }
+        
+        // Only unregister the unit, not the whole event context
+        EventContextManager.UnregisterUnit(unit);
+        
+        // Check if anyone else is still using this event
+        bool anyoneElseUsingEvent = false;
+        foreach (var pair in activeEvents)
+        {
+            if (pair.Key != unit && pair.Value == eventType)
+            {
+                anyoneElseUsingEvent = true;
+                break;
+            }
+        }
+        
+        // If no one else is using this event, clear its context
+        if (!anyoneElseUsingEvent)
+        {
+            EventContextManager.RemoveEventContext(eventType);
+            LogDebug($"Event context removed for {eventType.EventName} - no more active units");
+        }
+        else
+        {
+            LogDebug($"Event context maintained for {eventType.EventName} - other units still active");
+        }
+    }    
     
     // Start a coroutine for behaviors that need it
     public Coroutine StartBehaviorCoroutine(IEnumerator routine)
@@ -174,7 +377,7 @@ public class EventManager : MonoBehaviour
     }
 
     // Start a coroutine for behaviors that need it with behavior object and context
-    public Coroutine StartBehaviorCoroutine(GameObject unit, EventBehaviourSO behavior, EventContext context)
+    public Coroutine StartBehaviorCoroutine(GameObject unit, EventBehaviourSO behavior, Dictionary<string, object> context)
     {
         if (behavior != null)
         {
@@ -232,8 +435,7 @@ public class EventManager : MonoBehaviour
         
         return selectedEvent;
     }
-    
-    // Pick a random event (simplified for now)
+
     private EventTypeSO PickRandomEvent(string roomCoordinate)
     {
         // Simplified event selection - for now just using Quartz
@@ -255,7 +457,7 @@ public class EventManager : MonoBehaviour
         
         // Fallback to default
         return GetDefaultEvent();
-    }
+    }    
     
     // Get default event when none is specified
     private EventTypeSO GetDefaultEvent()
@@ -279,38 +481,46 @@ public class EventManager : MonoBehaviour
     
     #region Context Management
     // Populate event context with essential data
-    private void PopulateEventContext(EventContext context, GameObject unit)
+    private void PopulateEventContext(Dictionary<string, object> context, GameObject unit)
     {
-        // Set the unit
-        context.SetData("Unit", unit);
+        // Set the unit with unit-specific key
+        string unitObjectKey = GetUnitContextKey(unit, "Object");
+        context[unitObjectKey] = unit;
         
         // Get and set the current room
         if (unit.TryGetComponent<UnitData>(out var unitData) && unitData.currentRoom != null)
         {
             GameObject room = unitData.currentRoom;
-            context.SetData("Room", room);
+            context["Room"] = room;
             
             // Get and set the floor 
             GameObject floor = unitData.currentFloor;
             if (floor != null)
             {
-                context.SetData("Floor", floor);
+                context["Floor"] = floor;
                 
                 // Set floor-specific data
                 if (floor.TryGetComponent<Floor>(out var floorComponent))
                 {
-                    context.SetData("FloorNumber", floorComponent.floorNumber);
-                    context.SetData("MemoriaRequired", floorComponent.memoriaRequired);
+                    context["FloorNumber"] = floorComponent.floorNumber;
+                    context["MemoriaRequired"] = floorComponent.memoriaRequired;
                 }
             }
         }
     }
     
     // Get component from unit and store in context if not already present
-    public T GetOrStoreComponent<T>(GameObject unit, EventContext context, string key) where T : Component
+    public T GetOrStoreComponent<T>(GameObject unit, Dictionary<string, object> context, string key) where T : Component
     {
+        // Use unit-specific key for components
+        string unitKey = GetUnitContextKey(unit, key);
+        
         // Try to get from context first
-        T component = context.GetData<T>(key);
+        T component = null;
+        if (context.TryGetValue(unitKey, out object value) && value is T typedValue)
+        {
+            component = typedValue;
+        }
         
         // If not in context, get from unit and store in context
         if (component == null && unit != null)
@@ -318,7 +528,7 @@ public class EventManager : MonoBehaviour
             component = unit.GetComponent<T>();
             if (component != null)
             {
-                context.SetData(key, component);
+                context[unitKey] = component;
             }
         }
         
@@ -326,12 +536,12 @@ public class EventManager : MonoBehaviour
     }
     
     // Get current state data from unit's systems
-    public void GetOrStoreCurrentState<T>(GameplaySystems systems, EventContext context, string key, System.Func<T> getter)
+    public void GetOrStoreCurrentState<T>(GameplaySystems systems, Dictionary<string, object> context, string key, System.Func<T> getter)
     {
-        if (!context.HasData(key) && systems != null && getter != null)
+        if (!context.ContainsKey(key) && systems != null && getter != null)
         {
             T state = getter();
-            context.SetData(key, state);
+            context[key] = state;
         }
     }
     #endregion
@@ -340,7 +550,7 @@ public class EventManager : MonoBehaviour
     // Check if unit is in an active event
     public bool IsInActiveEvent(GameObject unit)
     {
-        return unit != null && activeEvents.ContainsKey(unit);
+        return activeEvents.ContainsKey(unit);
     }
     
     // Get current event for a unit
@@ -363,46 +573,115 @@ public class EventManager : MonoBehaviour
     #endregion
 }
 
-// Simple context class for events
-public class EventContext
+public static class EventContextManager
 {
-    // Dictionary to store any type of data
-    private Dictionary<string, object> contextData = new Dictionary<string, object>();
-
-    // Set data with a key
-    public void SetData<T>(string key, T value)
+    // Store contexts by event instance ID
+    private static Dictionary<int, Dictionary<string, object>> eventContexts = new Dictionary<int, Dictionary<string, object>>();
+    
+    // Track which event a unit is currently participating in
+    private static Dictionary<int, int> unitToEventMap = new Dictionary<int, int>(); // unitID -> eventID
+    
+    // Get context for an event
+    public static Dictionary<string, object> GetEventContext(EventTypeSO eventInstance)
     {
-        contextData[key] = value;
-    }
-
-    // Get data by key with type casting
-    public T GetData<T>(string key, T defaultValue = default)
-    {
-        if (HasData(key) && contextData[key] is T value)
+        if (eventInstance == null) return null;
+        
+        int eventID = eventInstance.GetInstanceID();
+        
+        if (!eventContexts.TryGetValue(eventID, out Dictionary<string, object> context))
         {
-            return value;
+            context = new Dictionary<string, object>();
+            eventContexts[eventID] = context;
         }
-        return defaultValue;
+        
+        return context;
     }
-
-    // Check if key exists
-    public bool HasData(string key)
+    
+    // Associate a unit with an event's context
+    public static Dictionary<string, object> RegisterUnitWithEvent(GameObject unit, EventTypeSO eventInstance)
     {
-        return contextData.ContainsKey(key);
-    }
-
-    // Remove data by key
-    public void RemoveData(string key)
-    {
-        if (HasData(key))
+        if (unit == null || eventInstance == null) return null;
+        
+        int unitID = unit.GetInstanceID();
+        int eventID = eventInstance.GetInstanceID();
+        
+        // Map the unit to this event
+        unitToEventMap[unitID] = eventID;
+        
+        // Create context if it doesn't exist
+        if (!eventContexts.TryGetValue(eventID, out Dictionary<string, object> context))
         {
-            contextData.Remove(key);
+            context = new Dictionary<string, object>();
+            eventContexts[eventID] = context;
+        }
+        
+        return context;
+    }
+    
+    // Get event context for a unit
+    public static Dictionary<string, object> GetContextForUnit(GameObject unit)
+    {
+        if (unit == null) return null;
+        
+        int unitID = unit.GetInstanceID();
+        
+        // Check if unit is associated with an event
+        if (unitToEventMap.TryGetValue(unitID, out int eventID))
+        {
+            // Return the event's context if it exists
+            if (eventContexts.TryGetValue(eventID, out Dictionary<string, object> context))
+            {
+                return context;
+            }
+        }
+        
+        // Unit has no associated event context
+        return null;
+    }
+    
+    // Remove context for an event
+    public static void RemoveEventContext(EventTypeSO eventInstance)
+    {
+        if (eventInstance == null) return;
+        
+        int eventID = eventInstance.GetInstanceID();
+        if (eventContexts.ContainsKey(eventID))
+        {
+            eventContexts.Remove(eventID);
+            
+            // Remove all unit mappings to this event
+            List<int> unitsToRemove = new List<int>();
+            foreach (var pair in unitToEventMap)
+            {
+                if (pair.Value == eventID)
+                {
+                    unitsToRemove.Add(pair.Key);
+                }
+            }
+            
+            foreach (int unitID in unitsToRemove)
+            {
+                unitToEventMap.Remove(unitID);
+            }   
         }
     }
-
-    // Clear all data
-    public void Clear()
+    
+    // Disassociate a unit from its event
+    public static void UnregisterUnit(GameObject unit)
     {
-        contextData.Clear();
+        if (unit == null) return;
+        
+        int unitID = unit.GetInstanceID();
+        if (unitToEventMap.ContainsKey(unitID))
+        {
+            unitToEventMap.Remove(unitID);
+        }
+    }
+    
+    // Clear all contexts and mappings
+    public static void ClearAllContexts()
+    {
+        eventContexts.Clear();
+        unitToEventMap.Clear();
     }
 }

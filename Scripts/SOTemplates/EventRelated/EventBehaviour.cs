@@ -9,7 +9,7 @@ public abstract class EventBehaviourSO : ScriptableObject
     [SerializeField] [TextArea(2, 4)] protected string behaviourDescription;
     
     // Controls whether this behaviour should block execution of subsequent behaviours until completed
-    [SerializeField] protected bool isBlocking = true;
+    [SerializeField] protected bool isBlocking = false;
     
     // Public accessor for isBlocking
     public bool IsBlocking => isBlocking;
@@ -18,13 +18,13 @@ public abstract class EventBehaviourSO : ScriptableObject
     public virtual bool Execute(GameObject unit)
     {
         // For backwards compatibility, create a default context
-        EventContext context = new EventContext();
-        context.SetData("Unit", unit);
+        Dictionary<string, object> context = new Dictionary<string, object>();
+        context["Unit"] = unit;
         return Execute(unit, context);
     }
     
-    // New execution with context
-    public virtual bool Execute(GameObject unit, EventContext context)
+    // Execute with context dictionary
+    public virtual bool Execute(GameObject unit, Dictionary<string, object> context)
     {
         // Default implementation returns true to continue behavior chain
         return true;
@@ -36,13 +36,13 @@ public abstract class EventBehaviourSO : ScriptableObject
     // For behaviours that need to run coroutines - context-free version
     public virtual IEnumerator ExecuteCoroutine(GameObject unit)
     {
-        EventContext context = new EventContext();
-        context.SetData("Unit", unit);
+        Dictionary<string, object> context = new Dictionary<string, object>();
+        context["Unit"] = unit;
         return ExecuteCoroutine(unit, context);
     }
     
     // Coroutine execution with context
-    public virtual IEnumerator ExecuteCoroutine(GameObject unit, EventContext context)
+    public virtual IEnumerator ExecuteCoroutine(GameObject unit, Dictionary<string, object> context)
     {
         Execute(unit, context);
         yield return null;

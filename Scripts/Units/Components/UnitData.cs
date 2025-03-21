@@ -3,28 +3,24 @@ using System.Collections.Generic;
 
 public class UnitData : MonoBehaviour
 {
+    #region Done
     [Header("Location Data")]
     public GameObject currentRoom; // Reference to the current room the unit is in.
     public GameObject currentFloor; // Reference to the current floor the unit is on.
-
     [Header("Unit Information")]
     public string unitName; // Name of the unit
-
     public int unitLevel = 1; // Unit's level
-
     [Header("Unit Stats")]
     public int unitCurrentHealth = 100; // Unit's current health
-
     public int unitMaxHealth = 100; // Unit's max health
-
     public int unitCurrentStance; // Unit's current stance (renamed from unitCurrentStamina)
-
     public int unitCurrentMemoria = 0; // Unit's current memoria
-
     public int unitTotalMemoria = 0; // Unit's total memoria
+    #endregion
 
     public int unitMemoriaLoot = 0; // Memoria gained from defeating the unit
 
+// Done
     [Header("Unit Attributes")]
     [SerializeField] protected int RE = 1; // Resolve. Affects the unit's health and ability checks related to size and mass. 
     [SerializeField] protected int AW = 1; // Awareness. Affects memoria gained, spent and abilities related to perception and intuition.
@@ -36,6 +32,8 @@ public class UnitData : MonoBehaviour
     [SerializeField] protected int KT = 1; // Kismet. Affects luck and ability checks related to chance.
     [SerializeField] protected int ST; // Stance. Calculated using other stats, determines how many hits the unit can withstand before it's stance is broken.
 
+
+
     [Header("Status Effects")]
     [SerializeField] private List<StatusEffect> activeStatusEffects = new List<StatusEffect>();
 
@@ -45,12 +43,6 @@ public class UnitData : MonoBehaviour
         // Initialize stance on awake
         RecalculateStats();
         unitCurrentStance = ST;
-    }
-
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
-    {
-        
     }
 
     void Update()
@@ -77,7 +69,6 @@ public class UnitData : MonoBehaviour
         // Recalculate derived stats if needed
         RecalculateStats();
     }
-
     // Individual setters
     public void SetResolve(int value) { RE = value; RecalculateStats(); }
     public void SetAwareness(int value) { AW = value; RecalculateStats(); }
@@ -139,6 +130,8 @@ public class UnitData : MonoBehaviour
         unitCurrentStance = Mathf.Clamp(unitCurrentStance + amount, 0, ST);
     }
 
+    //
+
     // Reset current stance to maximum
     public void ResetStance()
     {
@@ -152,7 +145,8 @@ public class UnitData : MonoBehaviour
     }
 
     #endregion
-
+    //
+    
     #region Status Effect Management
     
     // Add a new status effect to the unit

@@ -1,0 +1,111 @@
+using UnityEngine;
+using System;
+
+public class StanceSystem : MonoBehaviour
+{
+    [Header("Stance Values")]
+    [SerializeField] private int currentStance; // Current stance of the unit
+    [SerializeField] private int maxStance; // Maximum stance of the unit
+
+    #region Events
+    public event Action<int> OnStanceGained;
+    public event Action<int> OnStanceLost;
+    public event Action OnStanceBroken; // Fires when stance hits 0
+    public event Action<int> OnMaxStanceChanged; 
+    #endregion
+
+    #region Methods
+
+    // Method to get the current stance
+    public int GetCurrentStance()
+    {
+        return currentStance;
+    }
+
+    // Method to get the maximum stance
+    public int GetMaxStance()
+    {
+        return maxStance;
+    }
+
+    // Method to set the current stance
+    public void SetCurrentStance(int amount)
+    {
+        int oldValue = currentStance;
+        bool hadStance = oldValue > 0;
+        
+        // Clamp between 0 and maxStance
+        currentStance = Mathf.Clamp(amount, 0, maxStance);
+
+        // Only fire events if value changed
+        if (oldValue != currentStance)
+        {
+            // If stance drops to 0 and previously had stance, trigger broken event
+            if (currentStance == 0 && hadStance)
+            {
+                OnStanceBroken?.Invoke();
+                // Later you can add staggered ailment application here
+            }
+        }
+    }
+
+    // Method to set the maximum stance
+    public void SetMaxStance(int amount)
+    {
+        int oldValue = maxStance;
+        maxStance = Mathf.Max(0, amount);
+
+        if (oldValue != maxStance)
+        {
+            // If max decreased, clamp current stance
+            if (maxStance < oldValue && currentStance > maxStance)
+            {
+                SetCurrentStance(maxStance);
+            }
+            
+            OnMaxStanceChanged?.Invoke(maxStance);
+        }
+    }
+
+    // Method to gain stance
+    public void GainStance(int amount)
+    {
+        if (amount <= 0) return;
+
+        int oldCurrent = currentStance;
+        SetCurrentStance(currentStance + amount);
+
+        if (oldCurrent != currentStance)
+        {
+            OnStanceGained?.Invoke(amount);
+        }
+    }
+
+    // Method to lose stance
+    public void LoseStance(int amount)
+    {
+        if (amount <= 0) return;
+
+        int oldCurrent = currentStance;
+        SetCurrentStance(currentStance - amount);
+
+        if (oldCurrent != currentStance)
+        {
+            OnStanceLost?.Invoke(amount);
+        }
+    }
+
+    //Method to reset the stance
+    public void ResetStance()
+    {
+        SetCurrentStance(maxStance);
+    }
+
+    //Helper method to check if the unit still has stance
+    public bool HasStance()
+    {
+        return currentStance > 0;
+    }
+    
+    #endregion
+}

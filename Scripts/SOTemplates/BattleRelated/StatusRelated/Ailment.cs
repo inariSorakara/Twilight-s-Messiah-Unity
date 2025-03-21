@@ -47,7 +47,7 @@ public class AilmentSO : ScriptableObject
 
     public virtual void OnTick(GameObject target) 
     {
-        UnitData unitData = target.GetComponent<UnitData>();
+Usin    UnitData unitData = target.GetComponent<UnitData>();
         if (unitData != null)
         {
             // Get the status effect to update its remaining duration
