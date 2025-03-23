@@ -1,4 +1,4 @@
-using UnityEngine;
+/*using UnityEngine;
 
 [CreateAssetMenu(fileName = "New State Change", menuName = "Twilight's Messiah/Event Behaviours/State Change")]
 public class StateChangeComponent : EventBehaviourSO
@@ -163,3 +163,4 @@ public class StateChangeComponent : EventBehaviourSO
         }
     }
 }
+*/

@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "New Player Choice", menuName = "Twilight's Messiah/Event Behaviours/Player Choice")]
+/*[CreateAssetMenu(fileName = "New Player Choice", menuName = "Twilight's Messiah/Event Behaviours/Player Choice")]
 public class PlayerChoiceBehaviour : EventBehaviourSO
 {
     [System.Serializable]
@@ -161,4 +161,4 @@ public class PlayerChoiceBehaviour : EventBehaviourSO
         
         Debug.Log("==================================================");
     }
-}
+}*/

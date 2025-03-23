@@ -75,6 +75,7 @@ public enum EnemyType
 [CreateAssetMenu(fileName = "New Enemy", menuName = "Twilight's Messiah/Units/Enemy")]
 public class EnemySO : ScriptableObject
 {
+    /*
     [Header("Enemy Identification")]
     [SerializeField] private string enemySpecies = "Unknown"; // The "name" of the enemy species
     
@@ -83,17 +84,17 @@ public class EnemySO : ScriptableObject
     [SerializeField] private EnemyType enemyType;
     [SerializeField] private int enemyEncounterRate;
     
-    // Properties to access the race and type
+    /* Properties to access the race and type
     public EnemyRace Race => enemyRace;
     public EnemyType Type => enemyType;
     public int EncounterRate => enemyEncounterRate;
         
-    [Header("Base Stats")]
+     Header("Base Stats")]
     [SerializeField] private int baseLevel = 1;
     [SerializeField] private int baseMaxHealth = 10;
     [SerializeField] private int baseMemoria = 5;
     
-    [Header("Attributes")]
+    Header("Attributes")]
     [SerializeField] private int baseRE = 1; // Resolve. Affects health and size/mass checks
     [SerializeField] private int baseAW = 1; // Awareness. Affects memoria gain/spending and perception
     [SerializeField] private int baseFT = 1; // Fortitude. Physical damage resistance and endurance
@@ -106,59 +107,11 @@ public class EnemySO : ScriptableObject
     [Header("Rewards")]
     [SerializeField] private int lootMemoria = 10; // Base memoria reward
     
-    /// <summary>
-    /// Creates an enemy GameObject with proper components based on this template
-    /// </summary>
-    /// <param name="level">Optional level override (default uses baseLevel)</param>
-    /// <returns>The created enemy GameObject</returns>
-    public GameObject CreateEnemy(int level = -1)
+
+    // Creates an enemy GameObject with proper components based on this template
+    public void CreateEnemy(int level = -1)
     {
-        // Use provided level or default to base level
-        int enemyLevel = level > 0 ? level : baseLevel;
-        
-        // Create enemy GameObject
-        GameObject enemyGO = new GameObject(enemySpecies);
-        
-        // Add UnitData component
-        UnitData enemyData = enemyGO.AddComponent<UnitData>();
-        
-        // Set basic information
-        enemyData.unitName = $"{enemySpecies} ({enemyRace} {enemyType})";
-        enemyData.unitLevel = enemyLevel;
-        
-        // Calculate scaled stats
-        float levelMultiplier = 1f + (enemyLevel - 1) * 0.1f;
-        
-        // Set health stats
-        int maxHealth = Mathf.RoundToInt(baseMaxHealth + (enemyLevel - 1));
-        enemyData.unitMaxHealth = maxHealth;
-        enemyData.unitCurrentHealth = maxHealth;
-        
-        // Set memoria stats
-        int currentMemoria = Mathf.RoundToInt(baseMemoria + (enemyLevel - 1));
-        enemyData.unitCurrentMemoria = currentMemoria;
-        enemyData.unitMemoriaLoot = lootMemoria;
-        
-        // Set attributes (with level scaling) using the accessor method
-        enemyData.SetAttributes(
-            Mathf.RoundToInt(baseRE * levelMultiplier),
-            Mathf.RoundToInt(baseAW * levelMultiplier),
-            Mathf.RoundToInt(baseFT * levelMultiplier),
-            Mathf.RoundToInt(baseWI * levelMultiplier),
-            Mathf.RoundToInt(baseAG * levelMultiplier),
-            Mathf.RoundToInt(baseIF * levelMultiplier),
-            Mathf.RoundToInt(baseSY * levelMultiplier),
-            Mathf.RoundToInt(baseKT * levelMultiplier)
-        );
-        
-        // Set initial stance to maximum value (renamed from stamina)
-        enemyData.SetCurrentStance(enemyData.GetStance());
-        
-        // Add any necessary components for battle
-        enemyGO.AddComponent<GameplaySystems>();
-        
-        // Return the created enemy
-        return enemyGO;
+        //In future implementations, this method will create the enemies.
     }
 
 public void DecrementEncounterRate()
@@ -167,5 +120,5 @@ public void DecrementEncounterRate()
     {
         enemyEncounterRate--;
     }
-}
+}*/
 }

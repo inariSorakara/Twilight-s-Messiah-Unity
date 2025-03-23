@@ -160,15 +160,22 @@ public class RegularRoom : MonoBehaviour //Defines the class
             }
             
             // Update Unit's current room and floor references
-            UnitData unitData = unit.GetComponent<UnitData>();
-            if (unitData != null)
+            if (unit.TryGetComponent(out UnitPositionTracker unitPositionTracker))
             {
-                unitData.currentRoom = gameObject;
-                unitData.currentFloor = parentFloor;
+                unitPositionTracker.SetcurrentRoom(this);
+                
+                if (parentFloor != null && parentFloor.TryGetComponent(out Floor floorComponent))
+                {
+                    unitPositionTracker.SetcurrentFloor(floorComponent);
+                }
+                else
+                {
+                    Debug.LogError("Floor component not found on parent floor.");
+                }
             }
             else
             {
-                Debug.LogError("UnitData component not found on Unit.");
+                Debug.LogError("UnitPositionTracker component not found on Unit.");
             }
             
             // Add Unit to floor's Units inside list
@@ -239,9 +246,8 @@ public class RegularRoom : MonoBehaviour //Defines the class
             
             if (RoomEventType != null)
             {
-                // Get the player's UnitData component
-                UnitData playerData = Unit.GetComponent<UnitData>();
-                if (playerData != null)
+                // Pass the whole Unit
+                if (Unit != null)
                 {
                     Debug.Log($"Triggering {RoomEventType.name} event in room {RoomCoordinate}");
                     

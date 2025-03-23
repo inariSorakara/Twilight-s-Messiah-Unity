@@ -1,4 +1,4 @@
-using UnityEngine;
+/*using UnityEngine;
 
 [CreateAssetMenu(fileName = "New Player State Manipulator", menuName = "Twilight's Messiah/Event Behaviours/Player State Manipulator")]
 public class PlayerStateManipulator : EventBehaviourSO
@@ -168,3 +168,4 @@ public class PlayerStateManipulator : EventBehaviourSO
         public GameplaySystems.PlayerEventSubState eventSubState;
     }
 }
+*/

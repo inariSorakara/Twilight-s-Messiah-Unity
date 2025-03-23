@@ -1,4 +1,4 @@
-using UnityEngine;
+/*using UnityEngine;
 
 [CreateAssetMenu(fileName = "Skip Turn", menuName = "Twilight's Messiah/Combat/Symptom System/ Manifestations/Skip Turn")]
 public class SkipTurn : SymptomManifestation
@@ -36,4 +36,4 @@ public class SkipTurn : SymptomManifestation
             Debug.Log($"{unitIdentity.GetName()} can now take actions again");
         }
     }
-}
+}*/

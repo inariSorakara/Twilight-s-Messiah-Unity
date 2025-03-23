@@ -392,10 +392,10 @@ public class HudManager : MonoBehaviour
                     // Update memoria meter for this floor
                     if (currentPlayer != null)
                     {
-                        UnitData unitData = currentPlayer.GetComponent<UnitData>();
-                        if (unitData != null)
+                        MemoriaSystem memoriaSystem = currentPlayer.GetComponent<MemoriaSystem>();
+                        if (memoriaSystem != null)
                         {
-                            UpdateMemoriaMeter(unitData.unitTotalMemoria); // Use total memoria here
+                            UpdateMemoriaMeter(memoriaSystem.GetTotalMemoria()); // Use total memoria from MemoriaSystem
                         }
                     }
                 }
@@ -418,23 +418,50 @@ public class HudManager : MonoBehaviour
         if (player != null)
         {
             currentPlayer = player;
-            UnitData unitData = player.GetComponent<UnitData>();
-            if (unitData != null)
+            
+            // Get the required components instead of UnitData
+            UnitIdentity identity = player.GetComponent<UnitIdentity>();
+            HealthSystem healthSystem = player.GetComponent<HealthSystem>();
+            MemoriaSystem memoriaSystem = player.GetComponent<MemoriaSystem>();
+            
+            // Initialize values from components
+            if (identity != null)
             {
-                // On spawn, initialize immediately without tweening
-                UpdateUnitName(unitData.unitName);
-                
+                UpdateUnitName(identity.GetName()); // Get name from UnitIdentity
+            }
+            else
+            {
+                Debug.LogWarning($"Unit {player.name} doesn't have a UnitIdentity component!");
+            }
+            
+            if (healthSystem != null)
+            {
                 // Initialize display values directly to avoid tweening on spawn
-                displayedHealth = unitData.unitCurrentHealth;
-                displayedMaxHealth = unitData.unitMaxHealth;
-                displayedMemoria = unitData.unitCurrentMemoria;
-                displayedTotalMemoria = unitData.unitTotalMemoria;
+                displayedHealth = healthSystem.GetCurrentHealth();
+                displayedMaxHealth = healthSystem.GetMaxHealth();
                 
                 // Update text directly
                 if (UnitHealthText != null)
                 {
                     UnitHealthText.text = $"{displayedHealth} / {displayedMaxHealth}";
                 }
+                
+                // Set health bar values directly
+                if (healthBar != null)
+                {
+                    healthBar.SetMaxValue(displayedMaxHealth);
+                    healthBar.SetValue(displayedHealth);
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"Unit {player.name} doesn't have a HealthSystem component!");
+            }
+            
+            if (memoriaSystem != null)
+            {
+                displayedMemoria = memoriaSystem.GetCurrentMemoria();
+                displayedTotalMemoria = memoriaSystem.GetTotalMemoria();
                 
                 if (UnitCurrentMemoriaText != null)
                 {
@@ -446,27 +473,20 @@ public class HudManager : MonoBehaviour
                     UnitTotalMemoriaText.text = displayedTotalMemoria.ToString();
                 }
                 
-                // Set health bar values directly
-                if (healthBar != null)
+                //Update memoria meter if we know what room/floor the player is in
+                UnitPositionTracker positionTracker = player.GetComponent<UnitPositionTracker>();
+                if (positionTracker != null)
                 {
-                    healthBar.SetMaxValue(displayedMaxHealth);
-                    healthBar.SetValue(displayedHealth);
-                }
-                
-                // Update memoria meter if we know what room/floor the player is in
-                if (unitData.currentRoom != null)
-                {
-                    GameObject floor = unitData.currentRoom.transform.parent?.gameObject;
-                    if (floor != null)
+                    Floor currentFloor = positionTracker.GetCurrentFloor();
+                    if (currentFloor != null)
                     {
-                        currentFloor = floor;
-                        UpdateMemoriaMeter(unitData.unitTotalMemoria); // Use total memoria here
+                        UpdateMemoriaMeter(memoriaSystem.GetTotalMemoria());
                     }
                 }
             }
             else
             {
-                Debug.LogWarning($"Unit {player.name} doesn't have a UnitData component!");
+                Debug.LogWarning($"Unit {player.name} doesn't have a MemoriaSystem component!");
             }
         }
     }
@@ -476,10 +496,14 @@ public class HudManager : MonoBehaviour
     {
         if (unit != null)
         {
-            UnitData unitData = unit.GetComponent<UnitData>();
-            if (unitData != null)
+            HealthSystem healthSystem = unit.GetComponent<HealthSystem>();
+            if (healthSystem != null)
             {
-                UpdateUnitHealth(unitData.unitCurrentHealth, unitData.unitMaxHealth);
+                UpdateUnitHealth(healthSystem.GetCurrentHealth(), healthSystem.GetMaxHealth());
+            }
+            else
+            {
+                Debug.LogWarning($"Unit {unit.name} doesn't have a HealthSystem component!");
             }
         }
     }
@@ -490,10 +514,14 @@ public class HudManager : MonoBehaviour
         if (unit != null)
         {
             currentPlayer = unit; // Track the current player
-            UnitData unitData = unit.GetComponent<UnitData>();
-            if (unitData != null)
+            MemoriaSystem memoriaSystem = unit.GetComponent<MemoriaSystem>();
+            if (memoriaSystem != null)
             {
-                UpdateUnitMemoria(unitData.unitCurrentMemoria, unitData.unitTotalMemoria, true);
+                UpdateUnitMemoria(memoriaSystem.GetCurrentMemoria(), memoriaSystem.GetTotalMemoria(), true);
+            }
+            else
+            {
+                Debug.LogWarning($"Unit {unit.name} doesn't have a MemoriaSystem component!");
             }
         }
     }
@@ -503,10 +531,14 @@ public class HudManager : MonoBehaviour
     {
         if (unit != null)
         {
-            UnitData unitData = unit.GetComponent<UnitData>();
-            if (unitData != null)
+            MemoriaSystem memoriaSystem = unit.GetComponent<MemoriaSystem>();
+            if (memoriaSystem != null)
             {
-                UpdateUnitMemoria(unitData.unitCurrentMemoria, unitData.unitTotalMemoria, false);
+                UpdateUnitMemoria(memoriaSystem.GetCurrentMemoria(), memoriaSystem.GetTotalMemoria(), false);
+            }
+            else
+            {
+                Debug.LogWarning($"Unit {unit.name} doesn't have a MemoriaSystem component!");
             }
         }
     }

@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-public class SymptomSystem : Monobehaviour
+public class SymptomSystem : MonoBehaviour
 {
     #region System information
     [Header("Settings")]

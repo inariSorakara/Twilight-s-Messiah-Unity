@@ -44,7 +44,6 @@ public class StanceSystem : MonoBehaviour
             if (currentStance == 0 && hadStance)
             {
                 OnStanceBroken?.Invoke();
-                // Later you can add staggered ailment application here
             }
         }
     }
@@ -86,12 +85,35 @@ public class StanceSystem : MonoBehaviour
     {
         if (amount <= 0) return;
 
-        int oldCurrent = currentStance;
-        SetCurrentStance(currentStance - amount);
-
-        if (oldCurrent != currentStance)
+        int totalLost = 0;
+        
+        // Apply damage one by one and check for break
+        for (int i = 0; i < amount; i++)
         {
-            OnStanceLost?.Invoke(amount);
+            // If no stance left, stop processing additional hits
+            if (currentStance <= 0)
+                break;
+                
+            // Reduce by 1
+            int oldValue = currentStance;
+            SetCurrentStance(currentStance - 1);
+            
+            // Count this as lost stance
+            if (oldValue != currentStance)
+                totalLost++;
+                
+            // Check for stance break
+            if (currentStance <= 0)
+            {
+                StanceBreak();
+                break;
+            }
+        }
+        
+        // Only invoke event if stance was actually lost
+        if (totalLost > 0)
+        {
+            OnStanceLost?.Invoke(totalLost);
         }
     }
 
@@ -107,5 +129,35 @@ public class StanceSystem : MonoBehaviour
         return currentStance > 0;
     }
     
+
+    //Method to break the unit's stance
+    public void StanceBreak()
+    {
+        // Ensure stance is set to 0
+        SetCurrentStance(0);
+        
+        // Get the symptom system component
+        SymptomSystem symptomSystem = GetComponent<SymptomSystem>();
+        if (symptomSystem == null)
+        {
+            Debug.LogWarning($"No SymptomSystem found on {gameObject.name}. Cannot apply stagger effect.");
+            return;
+        }
+         SymptomSO staggerSymptom = DB.Instance.GetbyID<SymptomSO>("symptom", "#Stagger");
+        
+        if (staggerSymptom == null)
+        {
+            Debug.LogError("Stagger symptom not found in database. Make sure it exists at Resources/ScriptableObjects/UnitsRelated/Symptoms with the name 'Stagger'");
+            return;
+        }
+        
+        // Apply the stagger symptom to this unit
+        symptomSystem.ApplySymptom(staggerSymptom, gameObject);
+        
+        if (symptomSystem.debug)
+        {
+            Debug.Log($"Applied Stagger symptom to {gameObject.name} due to stance break");
+        }
+    }
     #endregion
 }
